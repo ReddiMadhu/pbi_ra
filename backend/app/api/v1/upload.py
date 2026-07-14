@@ -23,7 +23,27 @@ router = APIRouter()
 
 @router.post("/clear")
 async def clear_database(db: Session = Depends(get_db)):
-    """Clears all historical data to maintain an ephemeral session."""
+    """Clears session data but preserves the curated Ontology KPI Bank."""
+    db.query(ReportKPIMapping).delete()
+    db.query(KPIOntologyCache).delete()
+    # NOTE: OntologyKPI is intentionally NOT deleted here.
+    # It holds the user's uploaded/curated KPI bank which must persist
+    # across file upload sessions.
+    db.query(GovernanceRisk).delete()
+    db.query(CalculatedField).delete()
+    db.query(Worksheet).delete()
+    db.query(Dashboard).delete()
+    db.query(TableJoin).delete()
+    db.query(TableModel).delete()
+    db.query(DatasourceModel).delete()
+    db.query(Workbook).delete()
+    db.query(ScanHistory).delete()
+    db.commit()
+    return {"message": "Session data cleared (Ontology Bank preserved)"}
+
+@router.post("/clear-all")
+async def clear_all_database(db: Session = Depends(get_db)):
+    """Clears ALL data including the Ontology KPI Bank. Use only when you want a full reset."""
     db.query(ReportKPIMapping).delete()
     db.query(KPIOntologyCache).delete()
     db.query(OntologyKPI).delete()
@@ -37,7 +57,7 @@ async def clear_database(db: Session = Depends(get_db)):
     db.query(Workbook).delete()
     db.query(ScanHistory).delete()
     db.commit()
-    return {"message": "Database cleared for new session"}
+    return {"message": "All data cleared including Ontology Bank"}
 
 class ScanRequest(BaseModel):
     directory_path: str
