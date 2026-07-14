@@ -136,7 +136,13 @@ def _split_list(value) -> list[str]:
     return [text]
 
 
-def _row_to_kpi(row: pd.Series, resolved: dict[str, str | None], created_by_default: str) -> OntologyKPI | None:
+def _row_to_kpi(
+    row: pd.Series,
+    resolved: dict[str, str | None],
+    created_by_default: str,
+    *,
+    excel_tab_name: str | None = None,
+) -> OntologyKPI | None:
     name = _cell(row, resolved.get("name"))
     definition = _cell(row, resolved.get("definition"))
     if not name or not definition:
@@ -144,6 +150,9 @@ def _row_to_kpi(row: pd.Series, resolved: dict[str, str | None], created_by_defa
 
     domain = _cell(row, resolved.get("domain"))
     applicability = _cell(row, resolved.get("applicability"))
+    if not applicability and excel_tab_name:
+        applicability = excel_tab_name
+
     sector_raw = _cell(row, resolved.get("sector"))
     subdomain_raw = _cell(row, resolved.get("subdomain"))
 
@@ -179,6 +188,8 @@ def _row_to_kpi(row: pd.Series, resolved: dict[str, str | None], created_by_defa
     for sheet in _split_list(applicability):
         if sheet and sheet not in aliases and sheet.lower() != name.lower():
             aliases.append(sheet)
+    if excel_tab_name and excel_tab_name not in aliases and excel_tab_name.lower() != name.lower():
+        aliases.append(excel_tab_name)
 
     fields_required = _cell(row, resolved.get("fields_required"))
     lineage_raw = _cell(row, resolved.get("representative_lineage"))
@@ -206,6 +217,8 @@ def import_ontology_excel(
     created_by_default: str = "excel_import",
     dry_run: bool = False,
     update_existing: bool = False,
+    *,
+    all_sheets: bool = False,
 ) -> dict:
     path = Path(excel_path)
     if not path.exists():
@@ -213,50 +226,69 @@ def import_ontology_excel(
 
     Base.metadata.create_all(bind=engine)
 
-    df = pd.read_excel(path, sheet_name=sheet_name)
-    resolved = _resolve_headers(df)
-
-    missing = [f for f in REQUIRED_LOGICAL if not resolved.get(f)]
-    if missing:
-        raise ValueError(
-            f"Missing required columns for: {', '.join(missing)}. "
-            f"Need Measurement(KPI)/name and Definition. "
-            f"Detected headers: {list(df.columns)}. Resolved: {resolved}"
+    xl = pd.ExcelFile(path)
+    if all_sheets:
+        frames: list[tuple[str, pd.DataFrame]] = [
+            (name, pd.read_excel(path, sheet_name=name)) for name in xl.sheet_names
+        ]
+    else:
+        df = pd.read_excel(path, sheet_name=sheet_name)
+        tab = sheet_name if isinstance(sheet_name, str) else (
+            xl.sheet_names[sheet_name] if isinstance(sheet_name, int) and 0 <= sheet_name < len(xl.sheet_names)
+            else str(sheet_name)
         )
+        frames = [(tab, df)]
 
     db: Session = SessionLocal()
     inserted = 0
     updated = 0
     skipped = 0
     errors: list[str] = []
+    rows_read = 0
+    sheets_processed: list[str] = []
+    resolved_by_sheet: dict[str, dict] = {}
 
     try:
-        for _, row in df.iterrows():
-            kpi = _row_to_kpi(row, resolved, created_by_default)
-            if not kpi:
-                skipped += 1
-                continue
+        for tab_name, df in frames:
+            sheets_processed.append(tab_name)
+            rows_read += len(df)
+            resolved = _resolve_headers(df)
+            resolved_by_sheet[tab_name] = resolved
 
-            existing = db.query(OntologyKPI).filter(OntologyKPI.name == kpi.name).first()
-            if existing:
-                if update_existing:
-                    existing.definition = kpi.definition
-                    existing.domain = kpi.domain
-                    existing.sector = kpi.sector
-                    existing.subdomain = kpi.subdomain
-                    existing.aliases = kpi.aliases
-                    existing.aggregation_type = kpi.aggregation_type
-                    existing.valid_dimensions = kpi.valid_dimensions
-                    existing.representative_lineage = kpi.representative_lineage
-                    existing.status = kpi.status
-                    updated += 1
-                else:
+            missing = [f for f in REQUIRED_LOGICAL if not resolved.get(f)]
+            if missing:
+                raise ValueError(
+                    f"Sheet '{tab_name}' missing required columns for: {', '.join(missing)}. "
+                    f"Need Measurement(KPI)/name and Definition. "
+                    f"Detected headers: {list(df.columns)}. Resolved: {resolved}"
+                )
+
+            for _, row in df.iterrows():
+                kpi = _row_to_kpi(row, resolved, created_by_default, excel_tab_name=tab_name)
+                if not kpi:
                     skipped += 1
-                continue
+                    continue
 
-            if not dry_run:
-                db.add(kpi)
-            inserted += 1
+                existing = db.query(OntologyKPI).filter(OntologyKPI.name == kpi.name).first()
+                if existing:
+                    if update_existing:
+                        existing.definition = kpi.definition
+                        existing.domain = kpi.domain
+                        existing.sector = kpi.sector
+                        existing.subdomain = kpi.subdomain
+                        existing.aliases = kpi.aliases
+                        existing.aggregation_type = kpi.aggregation_type
+                        existing.valid_dimensions = kpi.valid_dimensions
+                        existing.representative_lineage = kpi.representative_lineage
+                        existing.status = kpi.status
+                        updated += 1
+                    else:
+                        skipped += 1
+                    continue
+
+                if not dry_run:
+                    db.add(kpi)
+                inserted += 1
 
         if not dry_run:
             db.commit()
@@ -270,8 +302,10 @@ def import_ontology_excel(
 
     return {
         "file": str(path),
-        "resolved_map": resolved,
-        "rows_read": len(df),
+        "all_sheets": all_sheets,
+        "sheets_processed": sheets_processed,
+        "resolved_map_by_sheet": resolved_by_sheet,
+        "rows_read": rows_read,
         "inserted": inserted,
         "updated": updated,
         "skipped": skipped,
@@ -284,6 +318,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Import ontology KPIs from Excel into SQLite")
     parser.add_argument("excel_path", help="Path to .xlsx file")
     parser.add_argument("--sheet", default=0, help="Sheet name or index (default: 0)")
+    parser.add_argument(
+        "--all-sheets",
+        action="store_true",
+        help="Read EVERY worksheet (Marketing, Distribution, Claims_Litigation, ...)",
+    )
     parser.add_argument("--created-by", default="excel_import", help="Default created_by value")
     parser.add_argument("--dry-run", action="store_true", help="Validate only; do not write to DB")
     parser.add_argument("--update-existing", action="store_true", help="Update rows that match by name")
@@ -299,6 +338,7 @@ def main(argv: list[str] | None = None) -> int:
         created_by_default=args.created_by,
         dry_run=args.dry_run,
         update_existing=args.update_existing,
+        all_sheets=args.all_sheets,
     )
     print(json.dumps(result, indent=2))
     return 0

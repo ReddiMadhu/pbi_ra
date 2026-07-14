@@ -11,10 +11,11 @@ Supported bank format (primary):
 
 Usage (from backend/):
   py -3 scripts/seed_ontology_from_excel.py path/to/kpi_bank.xlsx
-  py -3 scripts/seed_ontology_from_excel.py path/to/kpi_bank.xlsx --sheet "Sheet1"
-  py -3 scripts/seed_ontology_from_excel.py path/to/kpi_bank.xlsx --dry-run
-  py -3 scripts/seed_ontology_from_excel.py path/to/kpi_bank.xlsx --update-existing
-  py -3 scripts/seed_ontology_from_excel.py path/to/kpi_bank.xlsx --inspect
+  py -3 scripts/seed_ontology_from_excel.py path/to/kpi_bank.xlsx --sheet "Marketing"
+  py -3 scripts/seed_ontology_from_excel.py path/to/kpi_bank.xlsx --all-sheets
+  py -3 scripts/seed_ontology_from_excel.py path/to/kpi_bank.xlsx --all-sheets --dry-run
+  py -3 scripts/seed_ontology_from_excel.py path/to/kpi_bank.xlsx --all-sheets --update-existing
+  py -3 scripts/seed_ontology_from_excel.py path/to/kpi_bank.xlsx --inspect --all-sheets
 """
 from __future__ import annotations
 
@@ -287,6 +288,8 @@ def row_to_kpi(
     row: pd.Series,
     resolved: dict[str, str | None],
     defaults: dict,
+    *,
+    excel_tab_name: str | None = None,
 ) -> OntologyKPI | None:
     name = _cell(row, resolved.get("name"))
     definition = _cell(row, resolved.get("definition"))
@@ -296,6 +299,10 @@ def row_to_kpi(
     lineage_raw = _cell(row, resolved.get("representative_lineage"))
     fields_required = _cell(row, resolved.get("fields_required"))
     applicability = _cell(row, resolved.get("applicability"))
+
+    # When loading all Excel tabs, use the tab name as applicability if cell is empty
+    if not applicability and excel_tab_name:
+        applicability = excel_tab_name
 
     name = _build_name(name, table, column, worksheet)
     if not name:
@@ -308,7 +315,7 @@ def row_to_kpi(
     sector_raw = _cell(row, resolved.get("sector"))
     subdomain_raw = _cell(row, resolved.get("subdomain"))
 
-    # Infer scope from Applicability sheet names when sector/subdomain absent
+    # Infer scope from Applicability sheet names / Excel tab when sector/subdomain absent
     if not sector_raw and not subdomain_raw and applicability:
         sec_i, sub_i = suggest_scope_from_applicability(applicability)
         sector_raw = sec_i
@@ -343,13 +350,14 @@ def row_to_kpi(
     created_by = _cell(row, resolved.get("created_by")) or defaults.get("created_by", "excel_seed")
     aliases = _split_list(_cell(row, resolved.get("aliases")))
 
-    # Applicability sheet names become aliases (helps matching / filtering)
     for sheet in _split_list(applicability):
         if sheet and sheet not in aliases and sheet.lower() != name.lower():
             aliases.append(sheet)
 
     if worksheet and worksheet not in aliases and worksheet.lower() != name.lower():
         aliases.append(worksheet)
+    if excel_tab_name and excel_tab_name not in aliases and excel_tab_name.lower() != name.lower():
+        aliases.append(excel_tab_name)
 
     dims = _split_list(_cell(row, resolved.get("valid_dimensions")))
 
@@ -369,22 +377,116 @@ def row_to_kpi(
     )
 
 
-def inspect_excel(path: Path, sheet_name: str | int, column_map: dict) -> dict:
-    df = pd.read_excel(path, sheet_name=sheet_name)
+def list_excel_sheets(path: Path) -> list[str]:
+    xl = pd.ExcelFile(path)
+    return list(xl.sheet_names)
+
+
+def inspect_excel(
+    path: Path,
+    sheet_name: str | int | None,
+    column_map: dict,
+    *,
+    all_sheets: bool = False,
+) -> dict:
+    sheets = list_excel_sheets(path) if all_sheets or sheet_name is None else None
+    if all_sheets:
+        per_sheet = []
+        for name in sheets or []:
+            df = pd.read_excel(path, sheet_name=name)
+            resolved = resolve_column_map(list(df.columns), column_map)
+            per_sheet.append({
+                "sheet": name,
+                "excel_headers": [str(c) for c in df.columns],
+                "resolved_map": resolved,
+                "rows": len(df),
+            })
+        return {
+            "file": str(path),
+            "all_sheets": True,
+            "sheet_names": sheets,
+            "sheets": per_sheet,
+            "hint": "Use --all-sheets to load every worksheet in this workbook.",
+        }
+
+    df = pd.read_excel(path, sheet_name=sheet_name if sheet_name is not None else 0)
     resolved = resolve_column_map(list(df.columns), column_map)
     unmatched = [c for c in df.columns if c not in resolved.values()]
     return {
         "file": str(path),
         "sheet": sheet_name,
+        "sheet_names": list_excel_sheets(path),
         "excel_headers": [str(c) for c in df.columns],
         "resolved_map": resolved,
         "unmatched_excel_headers": [str(c) for c in unmatched],
         "rows": len(df),
         "hint": (
             "Expected headers: Measurement(KPI), Definition, "
-            "Fields required to create the Metric, Applicability with Sheet Names"
+            "Fields required to create the Metric, Applicability with Sheet Names. "
+            "Pass --all-sheets to read every Excel tab."
         ),
     }
+
+
+def _process_dataframe(
+    db: Session,
+    df: pd.DataFrame,
+    column_map: dict[str, list[str]],
+    defaults: dict,
+    *,
+    excel_tab_name: str | None,
+    dry_run: bool,
+    update_existing: bool,
+    preview: list[dict],
+) -> tuple[int, int, int, dict[str, str | None]]:
+    resolved = resolve_column_map(list(df.columns), column_map)
+    if not resolved.get("name") and not (resolved.get("table_name") and resolved.get("column_name")):
+        raise ValueError(
+            f"Could not resolve Measurement(KPI) / name on sheet '{excel_tab_name}'. "
+            f"Headers: {list(df.columns)}. Resolved: {resolved}."
+        )
+
+    inserted = updated = skipped = 0
+    for _, row in df.iterrows():
+        kpi = row_to_kpi(row, resolved, defaults, excel_tab_name=excel_tab_name)
+        if not kpi:
+            skipped += 1
+            continue
+
+        if len(preview) < 10:
+            preview.append({
+                "name": kpi.name,
+                "sheet": excel_tab_name,
+                "definition": (kpi.definition or "")[:80],
+                "sector": kpi.sector,
+                "subdomain": kpi.subdomain,
+                "lineage": kpi.representative_lineage,
+                "aliases": kpi.aliases,
+                "aggregation_type": kpi.aggregation_type,
+            })
+
+        existing = db.query(OntologyKPI).filter(OntologyKPI.name == kpi.name).first()
+        if existing:
+            if update_existing and not dry_run:
+                existing.definition = kpi.definition
+                existing.domain = kpi.domain
+                existing.sector = kpi.sector
+                existing.subdomain = kpi.subdomain
+                existing.aliases = kpi.aliases
+                existing.aggregation_type = kpi.aggregation_type
+                existing.valid_dimensions = kpi.valid_dimensions
+                existing.representative_lineage = kpi.representative_lineage
+                existing.status = kpi.status
+                updated += 1
+            else:
+                skipped += 1
+            continue
+
+        if not dry_run:
+            db.add(kpi)
+        inserted += 1
+
+    return inserted, updated, skipped, resolved
 
 
 def seed_from_excel(
@@ -395,6 +497,8 @@ def seed_from_excel(
     dry_run: bool = False,
     update_existing: bool = False,
     skip_embed: bool = False,
+    *,
+    all_sheets: bool = False,
 ) -> dict:
     path = Path(excel_path)
     if not path.exists():
@@ -404,59 +508,44 @@ def seed_from_excel(
     defaults = {**DEFAULTS, **(defaults or {})}
 
     Base.metadata.create_all(bind=engine)
-    df = pd.read_excel(path, sheet_name=sheet_name)
-    resolved = resolve_column_map(list(df.columns), column_map)
 
-    if not resolved.get("name") and not (resolved.get("table_name") and resolved.get("column_name")):
-        raise ValueError(
-            "Could not resolve Measurement(KPI) / name column. "
-            f"Detected headers: {list(df.columns)}. Resolved: {resolved}. "
-            "Run with --inspect."
-        )
+    if all_sheets:
+        sheet_names = list_excel_sheets(path)
+        frames: list[tuple[str, pd.DataFrame]] = [
+            (name, pd.read_excel(path, sheet_name=name)) for name in sheet_names
+        ]
+    else:
+        df = pd.read_excel(path, sheet_name=sheet_name)
+        tab = sheet_name if isinstance(sheet_name, str) else str(sheet_name)
+        if isinstance(sheet_name, int):
+            names = list_excel_sheets(path)
+            tab = names[sheet_name] if 0 <= sheet_name < len(names) else tab
+        frames = [(tab, df)]
+        sheet_names = [tab]
 
     db: Session = SessionLocal()
-    inserted = 0
-    updated = 0
-    skipped = 0
+    inserted = updated = skipped = 0
     preview: list[dict] = []
+    resolved_by_sheet: dict[str, dict] = {}
+    rows_read = 0
 
     try:
-        for _, row in df.iterrows():
-            kpi = row_to_kpi(row, resolved, defaults)
-            if not kpi:
-                skipped += 1
-                continue
-
-            preview.append({
-                "name": kpi.name,
-                "definition": (kpi.definition or "")[:80],
-                "sector": kpi.sector,
-                "subdomain": kpi.subdomain,
-                "lineage": kpi.representative_lineage,
-                "aliases": kpi.aliases,
-                "aggregation_type": kpi.aggregation_type,
-            })
-
-            existing = db.query(OntologyKPI).filter(OntologyKPI.name == kpi.name).first()
-            if existing:
-                if update_existing and not dry_run:
-                    existing.definition = kpi.definition
-                    existing.domain = kpi.domain
-                    existing.sector = kpi.sector
-                    existing.subdomain = kpi.subdomain
-                    existing.aliases = kpi.aliases
-                    existing.aggregation_type = kpi.aggregation_type
-                    existing.valid_dimensions = kpi.valid_dimensions
-                    existing.representative_lineage = kpi.representative_lineage
-                    existing.status = kpi.status
-                    updated += 1
-                else:
-                    skipped += 1
-                continue
-
-            if not dry_run:
-                db.add(kpi)
-            inserted += 1
+        for tab_name, df in frames:
+            rows_read += len(df)
+            ins, upd, skip, resolved = _process_dataframe(
+                db,
+                df,
+                column_map,
+                defaults,
+                excel_tab_name=tab_name,
+                dry_run=dry_run,
+                update_existing=update_existing,
+                preview=preview,
+            )
+            inserted += ins
+            updated += upd
+            skipped += skip
+            resolved_by_sheet[tab_name] = resolved
 
         if not dry_run:
             db.commit()
@@ -470,9 +559,10 @@ def seed_from_excel(
 
     return {
         "file": str(path),
-        "sheet": sheet_name,
-        "resolved_map": resolved,
-        "rows_read": len(df),
+        "all_sheets": all_sheets,
+        "sheets_processed": sheet_names,
+        "resolved_map_by_sheet": resolved_by_sheet,
+        "rows_read": rows_read,
         "inserted": inserted,
         "updated": updated,
         "skipped": skipped,
@@ -496,6 +586,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("excel_path", help="Path to .xlsx / .xls")
     parser.add_argument("--sheet", default="0", help="Sheet name or index (default: 0)")
+    parser.add_argument(
+        "--all-sheets",
+        action="store_true",
+        help="Read EVERY worksheet in the Excel file (Marketing, Distribution, Claims_Litigation, ...)",
+    )
     parser.add_argument("--inspect", action="store_true", help="Show headers + resolved map only")
     parser.add_argument("--dry-run", action="store_true", help="Preview inserts; do not write")
     parser.add_argument("--update-existing", action="store_true", help="Update rows matched by name")
@@ -518,7 +613,10 @@ def main(argv: list[str] | None = None) -> int:
 
     path = Path(args.excel_path)
     if args.inspect:
-        print(json.dumps(inspect_excel(path, sheet, column_map), indent=2))
+        print(json.dumps(
+            inspect_excel(path, sheet, column_map, all_sheets=args.all_sheets),
+            indent=2,
+        ))
         return 0
 
     result = seed_from_excel(
@@ -529,6 +627,7 @@ def main(argv: list[str] | None = None) -> int:
         dry_run=args.dry_run,
         update_existing=args.update_existing,
         skip_embed=args.skip_embed,
+        all_sheets=args.all_sheets,
     )
     print(json.dumps(result, indent=2))
     return 0
