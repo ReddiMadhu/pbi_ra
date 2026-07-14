@@ -61,7 +61,27 @@ def sync_metadata_to_db(metadata: WorkbookMetadata, pg_session: Session):
         except Exception:
             pass
         try:
+            conn.execute(text("ALTER TABLE report_kpi_mappings ADD COLUMN report_kpi_definition TEXT;"))
+        except Exception:
+            pass
+        try:
             conn.execute(text("ALTER TABLE ontology_kpis ADD COLUMN representative_lineage TEXT;"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE ontology_kpis ADD COLUMN sector TEXT;"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE ontology_kpis ADD COLUMN subdomain TEXT;"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE dashboards ADD COLUMN ontology_sector TEXT;"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE dashboards ADD COLUMN ontology_subdomain TEXT;"))
         except Exception:
             pass
         try:

@@ -48,6 +48,26 @@ async def lifespan(app: FastAPI):
         except Exception:
             pass
         try:
+            conn.execute(text("ALTER TABLE ontology_kpis ADD COLUMN sector TEXT;"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE ontology_kpis ADD COLUMN subdomain TEXT;"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE dashboards ADD COLUMN ontology_sector TEXT;"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE dashboards ADD COLUMN ontology_subdomain TEXT;"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE report_kpi_mappings ADD COLUMN report_kpi_definition TEXT;"))
+        except Exception:
+            pass
+        try:
             conn.execute(text("DROP INDEX IF EXISTS idx_rkm_report_canonical;"))
         except Exception:
             pass

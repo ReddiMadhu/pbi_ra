@@ -106,6 +106,8 @@ def _classify_domain(state: GovernanceAgentState) -> GovernanceAgentState:
 
     state["classification"] = {
         "domain": result.domain,
+        "ontology_sector": getattr(result, "ontology_sector", None),
+        "ontology_subdomain": getattr(result, "ontology_subdomain", None),
         "line_of_business": getattr(result, 'line_of_business', None),
         "insight_level": getattr(result, 'insight_level', "Overall Level"),
         "complexity": result.complexity,
@@ -289,6 +291,8 @@ def run_governance_workflow(
         dashboard_record = db_session.query(Dashboard).filter(Dashboard.id == db_id).first()
         if dashboard_record and state["classification"]:
             dashboard_record.domain_classification = state["classification"]["domain"]
+            dashboard_record.ontology_sector = state["classification"].get("ontology_sector")
+            dashboard_record.ontology_subdomain = state["classification"].get("ontology_subdomain")
             dashboard_record.line_of_business = state["classification"].get("line_of_business")
             dashboard_record.user_groups = user_groups_from_excel
             db_meta.domain = state["classification"]["domain"]

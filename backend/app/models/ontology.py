@@ -10,6 +10,8 @@ class OntologyKPI(Base):
     name = Column(String, nullable=False, unique=True)
     definition = Column(Text, nullable=False)
     domain = Column(String, nullable=True)
+    sector = Column(String, nullable=True, index=True)
+    subdomain = Column(String, nullable=True, index=True)
     aliases = Column(Text, nullable=True)  # JSON array
     aggregation_type = Column(String, nullable=True)
     valid_dimensions = Column(Text, nullable=True)  # JSON array
@@ -18,6 +20,14 @@ class OntologyKPI(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     status = Column(String, default="active")
     embedding = Column(LargeBinary, nullable=True)
+
+
+Index(
+    "idx_okpi_sector_subdomain_status",
+    OntologyKPI.sector,
+    OntologyKPI.subdomain,
+    OntologyKPI.status,
+)
 
 
 class ReportKPIMapping(Base):
@@ -30,6 +40,7 @@ class ReportKPIMapping(Base):
     report_kpi_name = Column(String, nullable=False)
     report_kpi_lineage = Column(Text, nullable=True)  # JSON array
     report_kpi_aggregation = Column(String, nullable=True)
+    report_kpi_definition = Column(Text, nullable=True)
     canonical_kpi_id = Column(String, nullable=True, index=True)
     similarity_score = Column(Float, nullable=True)
     confidence_score = Column(Float, nullable=True)

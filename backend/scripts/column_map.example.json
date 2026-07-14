@@ -1,0 +1,11 @@
+{
+  "name": ["KPI Name", "Measure Name", "Variable"],
+  "definition": ["Business Definition", "Description"],
+  "table_name": ["Source Table", "Table Name", "Physical Table"],
+  "column_name": ["Source Field", "Column Name", "Field Name"],
+  "sector": ["Sector"],
+  "subdomain": ["Sub Domain", "Subdomain"],
+  "aggregation_type": ["Aggregation", "Agg"],
+  "aliases": ["Aliases", "AKA"],
+  "worksheet_name": ["Worksheet", "Sheet Name"]
+}

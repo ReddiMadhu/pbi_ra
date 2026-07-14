@@ -9,11 +9,20 @@ interface CanonicalKPI {
   name: string;
   definition: string;
   domain: string;
+  sector: string;
+  subdomain: string;
   aliases: string[];
   aggregation_type: string;
   status: 'active' | 'stale';
+  is_active_sector?: boolean;
   created_by: string;
   created_at: string;
+}
+
+interface Taxonomy {
+  sectors: string[];
+  active_sectors: string[];
+  subdomains_by_sector: Record<string, string[]>;
 }
 
 type Tab = 'bank' | 'pending_review' | 'not_found';
@@ -22,26 +31,32 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
   const [tab, setTab] = useState<Tab>(filterReportId ? 'pending_review' : 'bank');
   const [kpis, setKpis] = useState<CanonicalKPI[]>([]);
   const [mappings, setMappings] = useState<MappingRow[]>([]);
+  const [taxonomy, setTaxonomy] = useState<Taxonomy | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [domainFilter, setDomainFilter] = useState('all');
+  const [sectorFilter, setSectorFilter] = useState('all');
+  const [subdomainFilter, setSubdomainFilter] = useState('all');
   const [selectedKpi, setSelectedKpi] = useState<CanonicalKPI | null>(null);
   const [resolveMapping, setResolveMapping] = useState<MappingRow | null>(null);
 
   const load = async () => {
     setLoading(true);
     try {
-      const [kpiRes, pendingRes] = await Promise.all([
+      const [kpiRes, pendingRes, taxRes] = await Promise.all([
         fetch(`${API_BASE_URL}/api/v1/ontology/kpis?limit=500`),
         fetch(`${API_BASE_URL}/api/v1/ontology/mappings/pending?limit=500`),
+        fetch(`${API_BASE_URL}/api/v1/ontology/taxonomy`),
       ]);
       const kpiData = await kpiRes.json();
       const pendingData = await pendingRes.json();
+      const taxData = await taxRes.json();
       setKpis(Array.isArray(kpiData) ? kpiData : []);
       setMappings(Array.isArray(pendingData) ? pendingData : []);
+      setTaxonomy(taxData);
     } catch {
       setKpis([]);
       setMappings([]);
+      setTaxonomy(null);
     } finally {
       setLoading(false);
     }
@@ -51,10 +66,21 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
     load();
   }, []);
 
-  const domains = useMemo(() => {
-    const set = new Set(kpis.map((k) => k.domain).filter(Boolean));
-    return ['all', ...Array.from(set)];
-  }, [kpis]);
+  const sectors = useMemo(() => {
+    const fromTax = taxonomy?.sectors ?? [];
+    const fromKpis = kpis.map((k) => k.sector).filter(Boolean);
+    return ['all', ...Array.from(new Set([...fromTax, ...fromKpis]))];
+  }, [kpis, taxonomy]);
+
+  const subdomains = useMemo(() => {
+    if (sectorFilter === 'all') {
+      const all = kpis.map((k) => k.subdomain).filter(Boolean);
+      return ['all', ...Array.from(new Set(all))];
+    }
+    const fromTax = taxonomy?.subdomains_by_sector?.[sectorFilter] ?? [];
+    const fromKpis = kpis.filter((k) => k.sector === sectorFilter).map((k) => k.subdomain).filter(Boolean);
+    return ['all', ...Array.from(new Set([...fromTax, ...fromKpis]))];
+  }, [kpis, taxonomy, sectorFilter]);
 
   const filteredKpis = useMemo(() => {
     return kpis.filter((k) => {
@@ -64,10 +90,11 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
         k.name.toLowerCase().includes(q) ||
         k.definition.toLowerCase().includes(q) ||
         k.aliases?.some((a) => a.toLowerCase().includes(q));
-      const matchDomain = domainFilter === 'all' || k.domain === domainFilter;
-      return matchSearch && matchDomain;
+      const matchSector = sectorFilter === 'all' || k.sector === sectorFilter;
+      const matchSubdomain = subdomainFilter === 'all' || k.subdomain === subdomainFilter;
+      return matchSearch && matchSector && matchSubdomain;
     });
-  }, [kpis, search, domainFilter]);
+  }, [kpis, search, sectorFilter, subdomainFilter]);
 
   const filteredMappings = useMemo(() => {
     let list = mappings;
@@ -80,6 +107,8 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
   }, [mappings, tab, search, filterReportId]);
 
   const pendingCount = mappings.filter((m) => m.mapping_status === 'pending_review').length;
+  const isSectorInactive = (sector: string) =>
+    taxonomy?.active_sectors ? !taxonomy.active_sectors.includes(sector) : false;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -90,7 +119,7 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
             Ontology Bank
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Browse canonical KPIs and resolve human-in-the-loop mappings
+            Browse canonical KPIs by sector and subdomain; resolve HITL mappings
           </p>
         </div>
         {pendingCount > 0 && (
@@ -125,15 +154,29 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
           />
         </div>
         {tab === 'bank' && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Filter className="w-4 h-4 text-muted-foreground" />
             <select
               className="px-3 py-2 rounded-lg border border-border bg-background text-sm"
-              value={domainFilter}
-              onChange={(e) => setDomainFilter(e.target.value)}
+              value={sectorFilter}
+              onChange={(e) => {
+                setSectorFilter(e.target.value);
+                setSubdomainFilter('all');
+              }}
             >
-              {domains.map((d) => (
-                <option key={d} value={d}>{d === 'all' ? 'All domains' : d}</option>
+              {sectors.map((s) => (
+                <option key={s} value={s}>
+                  {s === 'all' ? 'All sectors' : `${s}${isSectorInactive(s) ? ' (inactive)' : ''}`}
+                </option>
+              ))}
+            </select>
+            <select
+              className="px-3 py-2 rounded-lg border border-border bg-background text-sm"
+              value={subdomainFilter}
+              onChange={(e) => setSubdomainFilter(e.target.value)}
+            >
+              {subdomains.map((d) => (
+                <option key={d} value={d}>{d === 'all' ? 'All subdomains' : d}</option>
               ))}
             </select>
           </div>
@@ -158,9 +201,12 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
                 onClick={() => setSelectedKpi(kpi)}
                 className="p-4 rounded-xl border border-border bg-card hover:border-primary/30 cursor-pointer transition-all"
               >
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className="font-semibold">{kpi.name}</span>
-                  <Badge variant="outline" className="text-[10px]">{kpi.domain}</Badge>
+                  <Badge variant="outline" className="text-[10px]">{kpi.sector}/{kpi.subdomain}</Badge>
+                  {kpi.is_active_sector === false && (
+                    <Badge variant="outline" className="text-[10px] text-muted-foreground">inactive sector</Badge>
+                  )}
                   <Badge variant={kpi.status === 'active' ? 'default' : 'outline'} className="text-[10px] ml-auto">
                     {kpi.status}
                   </Badge>
@@ -201,6 +247,8 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
           <div className="relative w-full max-w-md bg-background border-l border-border shadow-xl p-6 overflow-y-auto">
             <h3 className="text-lg font-bold mb-4">{selectedKpi.name}</h3>
             <div className="space-y-3 text-sm">
+              <div><span className="text-muted-foreground">Sector:</span> {selectedKpi.sector}</div>
+              <div><span className="text-muted-foreground">Subdomain:</span> {selectedKpi.subdomain}</div>
               <div><span className="text-muted-foreground">Domain:</span> {selectedKpi.domain}</div>
               <div><span className="text-muted-foreground">Aggregation:</span> {selectedKpi.aggregation_type}</div>
               <div><span className="text-muted-foreground">Definition:</span> {selectedKpi.definition}</div>

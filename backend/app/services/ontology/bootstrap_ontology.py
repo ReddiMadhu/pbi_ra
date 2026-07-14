@@ -7,6 +7,7 @@ from app.models.ontology import OntologyKPI
 from app.models.postgres import Dashboard
 from app.api.v1.kpi_graph import get_kpi_clusters
 from app.services.ontology.embedding_service import embed_ontology_kpis
+from app.services.ontology.taxonomy import normalize_scope, suggest_from_legacy_domain
 
 
 def bootstrap(min_kpis: int = 30) -> int:
@@ -25,6 +26,7 @@ def bootstrap(min_kpis: int = 30) -> int:
         unique_names: set[str] = set()
         kpi_defs: dict[str, str] = {}
         kpi_domains: dict[str, str] = {}
+        kpi_scopes: dict[str, tuple[str, str]] = {}
 
         for dash in db.query(Dashboard).all():
             if not dash.ai_summary:
@@ -34,16 +36,23 @@ def bootstrap(min_kpis: int = 30) -> int:
             except Exception:
                 continue
             domain = dash.domain_classification or "General"
+            sector, subdomain = normalize_scope(
+                dash.ontology_sector,
+                dash.ontology_subdomain,
+                legacy_domain=domain,
+            )
             for k in data.get("kpis", []):
                 if isinstance(k, dict) and k.get("name"):
                     name = k["name"]
                     unique_names.add(name)
                     kpi_defs[name] = k.get("definition", "") or name
                     kpi_domains[name] = domain
+                    kpi_scopes[name] = (sector, subdomain)
                 elif isinstance(k, str):
                     unique_names.add(k)
                     kpi_defs[k] = k
                     kpi_domains[k] = domain
+                    kpi_scopes[k] = (sector, subdomain)
 
         if not unique_names:
             print("No KPIs found in dashboard summaries.")
@@ -65,12 +74,15 @@ def bootstrap(min_kpis: int = 30) -> int:
             domain = kpi_domains.get(canonical) or next(
                 (kpi_domains.get(a, "General") for a in alias_list), "General"
             )
+            sector, subdomain = kpi_scopes.get(canonical) or suggest_from_legacy_domain(domain)
             db.add(
                 OntologyKPI(
                     kpi_id=str(uuid.uuid4()),
                     name=canonical,
                     definition=definition or canonical,
                     domain=domain,
+                    sector=sector,
+                    subdomain=subdomain,
                     aliases=json.dumps(alias_list),
                     aggregation_type="UNKNOWN",
                     created_by="bootstrap_script",
@@ -78,6 +90,16 @@ def bootstrap(min_kpis: int = 30) -> int:
                 )
             )
             inserted += 1
+
+        # Backfill sector/subdomain on existing rows missing them
+        for row in db.query(OntologyKPI).filter(
+            (OntologyKPI.sector.is_(None)) | (OntologyKPI.subdomain.is_(None))
+        ).all():
+            sector, subdomain = suggest_from_legacy_domain(row.domain)
+            row.sector = sector
+            row.subdomain = subdomain
+            if not row.domain:
+                row.domain = f"{sector}/{subdomain}"
 
         db.commit()
         embed_ontology_kpis(db)

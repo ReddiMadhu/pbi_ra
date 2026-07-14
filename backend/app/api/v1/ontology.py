@@ -8,10 +8,18 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.ontology import OntologyKPI, ReportKPIMapping
 from app.models.postgres import Dashboard, Workbook, CalculatedField
+from app.services.ontology.embedding_service import embed_ontology_kpis
 from app.services.ontology.ontology_service import (
     enrich_with_ontology_inventory,
     process_dashboard_kpis,
     update_representative_lineage,
+)
+from app.services.ontology.taxonomy import (
+    get_taxonomy_for_api,
+    is_sector_active,
+    normalize_scope,
+    validate_sector,
+    validate_subdomain,
 )
 
 router = APIRouter()
@@ -28,12 +36,15 @@ def _kpi_to_dict(kpi: OntologyKPI) -> dict:
         "name": kpi.name,
         "definition": kpi.definition,
         "domain": kpi.domain,
+        "sector": kpi.sector,
+        "subdomain": kpi.subdomain,
         "aliases": aliases,
         "aggregation_type": kpi.aggregation_type,
         "valid_dimensions": json.loads(kpi.valid_dimensions) if kpi.valid_dimensions else [],
         "created_by": kpi.created_by,
         "created_at": kpi.created_at.isoformat() if kpi.created_at else None,
         "status": kpi.status,
+        "is_active_sector": is_sector_active(kpi.sector),
     }
 
 
@@ -63,9 +74,29 @@ def _mapping_to_dict(row: ReportKPIMapping) -> dict:
     }
 
 
+def _apply_kpi_scope(body: dict, existing: OntologyKPI | None = None) -> tuple[str, str]:
+    sector = validate_sector(body.get("sector") or (existing.sector if existing else None))
+    subdomain = validate_subdomain(sector, body.get("subdomain") or (existing.subdomain if existing else None))
+    if not sector or not subdomain:
+        sec, sub = normalize_scope(
+            body.get("sector"),
+            body.get("subdomain"),
+            legacy_domain=body.get("domain"),
+        )
+        return sec, sub
+    return sector, subdomain
+
+
+@router.get("/taxonomy")
+def get_taxonomy():
+    return get_taxonomy_for_api()
+
+
 @router.get("/kpis")
 def list_kpis(
     domain: str | None = None,
+    sector: str | None = None,
+    subdomain: str | None = None,
     status: str = "active",
     skip: int = 0,
     limit: int = 100,
@@ -74,17 +105,24 @@ def list_kpis(
     q = db.query(OntologyKPI).filter(OntologyKPI.status == status)
     if domain:
         q = q.filter(OntologyKPI.domain == domain)
+    if sector:
+        q = q.filter(OntologyKPI.sector == sector)
+    if subdomain:
+        q = q.filter(OntologyKPI.subdomain == subdomain)
     rows = q.offset(skip).limit(limit).all()
     return [_kpi_to_dict(r) for r in rows]
 
 
 @router.post("/kpis")
 def create_kpi(body: dict, db: Session = Depends(get_db)):
+    sector, subdomain = _apply_kpi_scope(body)
     kpi = OntologyKPI(
         kpi_id=str(uuid.uuid4()),
         name=body["name"],
         definition=body["definition"],
-        domain=body.get("domain", "General"),
+        domain=body.get("domain") or f"{sector}/{subdomain}",
+        sector=sector,
+        subdomain=subdomain,
         aliases=json.dumps(body.get("aliases", [])),
         aggregation_type=body.get("aggregation_type", "UNKNOWN"),
         valid_dimensions=json.dumps(body.get("valid_dimensions", [])),
@@ -93,6 +131,7 @@ def create_kpi(body: dict, db: Session = Depends(get_db)):
     db.add(kpi)
     db.commit()
     db.refresh(kpi)
+    embed_ontology_kpis(db)
     return _kpi_to_dict(kpi)
 
 
@@ -107,6 +146,10 @@ def update_kpi(kpi_id: str, body: dict, db: Session = Depends(get_db)):
         kpi.definition = body["definition"]
     if "domain" in body:
         kpi.domain = body["domain"]
+    if "sector" in body or "subdomain" in body:
+        sector, subdomain = _apply_kpi_scope(body, existing=kpi)
+        kpi.sector = sector
+        kpi.subdomain = subdomain
     if "aliases" in body:
         kpi.aliases = json.dumps(body["aliases"])
     if "aggregation_type" in body:
@@ -117,6 +160,7 @@ def update_kpi(kpi_id: str, body: dict, db: Session = Depends(get_db)):
         kpi.status = body["status"]
     db.commit()
     db.refresh(kpi)
+    embed_ontology_kpis(db)
     return _kpi_to_dict(kpi)
 
 
@@ -126,8 +170,28 @@ def get_report_kpi_inventory(report_id: str, db: Session = Depends(get_db)):
     inv = enrich_with_ontology_inventory(report_id, db)
     if inv is None:
         inv = {"report_id": report_id, "total": 0, "mapped": 0, "ambiguous": 0, "not_found": 0, "ontology_score": 0}
+    dash = db.query(Dashboard).filter(Dashboard.id == int(report_id)).first()
+    if dash:
+        inv["ontology_sector"] = dash.ontology_sector
+        inv["ontology_subdomain"] = dash.ontology_subdomain
     inv["items"] = [_mapping_to_dict(r) for r in rows]
     return inv
+
+
+@router.put("/reports/{report_id}/scope")
+def update_dashboard_scope(report_id: str, body: dict, db: Session = Depends(get_db)):
+    dashboard = db.query(Dashboard).filter(Dashboard.id == int(report_id)).first()
+    if not dashboard:
+        raise HTTPException(404, "Dashboard not found")
+    sector, subdomain = _apply_kpi_scope(body)
+    dashboard.ontology_sector = sector
+    dashboard.ontology_subdomain = subdomain
+    db.commit()
+    return {
+        "report_id": report_id,
+        "ontology_sector": sector,
+        "ontology_subdomain": subdomain,
+    }
 
 
 @router.post("/reports/{report_id}/extract")
@@ -231,11 +295,19 @@ def promote_nf_kpi(mapping_id: str, body: dict, db: Session = Depends(get_db)):
     ).first()
     if not row:
         raise HTTPException(404, "Not-Found mapping not found")
+    dash = db.query(Dashboard).filter(Dashboard.id == int(row.report_id)).first()
+    sector, subdomain = normalize_scope(
+        body.get("sector") or (dash.ontology_sector if dash else None),
+        body.get("subdomain") or (dash.ontology_subdomain if dash else None),
+        legacy_domain=dash.domain_classification if dash else None,
+    )
     new_kpi = OntologyKPI(
         kpi_id=str(uuid.uuid4()),
         name=body["name"],
         definition=body["definition"],
-        domain=body.get("domain", "General"),
+        domain=body.get("domain") or f"{sector}/{subdomain}",
+        sector=sector,
+        subdomain=subdomain,
         aliases=json.dumps(body.get("aliases", [row.report_kpi_name])),
         aggregation_type=row.report_kpi_aggregation or "UNKNOWN",
         representative_lineage=row.report_kpi_lineage,
@@ -247,4 +319,5 @@ def promote_nf_kpi(mapping_id: str, body: dict, db: Session = Depends(get_db)):
     row.resolved_by = body.get("analyst_id", "analyst")
     row.resolved_at = datetime.utcnow()
     db.commit()
+    embed_ontology_kpis(db)
     return {"new_kpi": _kpi_to_dict(new_kpi), "updated_mapping": _mapping_to_dict(row)}

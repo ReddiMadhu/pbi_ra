@@ -4,7 +4,9 @@ Import canonical KPIs from an Excel file into ontology_kpis (SQLite).
 Expected Excel columns (header row required):
   name              | required | unique canonical KPI name
   definition        | required | business definition
-  domain            | optional | e.g. Finance, Sales, Operations
+  sector            | required | insurance | banking | finance | operational
+  subdomain         | required | e.g. claims, actuarial, underwriting (per sector)
+  domain            | optional | legacy display label; defaults to sector/subdomain
   aliases           | optional | comma-separated: "Revenue, Net Sales"
   aggregation_type  | optional | SUM | AVG | COUNT | NONE | UNKNOWN
   valid_dimensions  | optional | comma-separated: "Region, Time"
@@ -30,9 +32,10 @@ from sqlalchemy.orm import Session
 from app.db.session import SessionLocal, engine, Base
 from app.models.ontology import OntologyKPI
 from app.services.ontology.embedding_service import embed_ontology_kpis
+from app.services.ontology.taxonomy import normalize_scope, validate_sector, validate_subdomain
 import app.models.ontology  # noqa: F401
 
-REQUIRED_COLUMNS = {"name", "definition"}
+REQUIRED_COLUMNS = {"name", "definition", "sector", "subdomain"}
 OPTIONAL_COLUMNS = {
     "domain",
     "aliases",
@@ -42,7 +45,10 @@ OPTIONAL_COLUMNS = {
     "created_by",
     "status",
 }
-VALID_AGGREGATIONS = {"SUM", "AVG", "AVERAGE", "COUNT", "COUNTD", "MIN", "MAX", "MEDIAN", "ATTR", "NONE", "UNKNOWN"}
+VALID_AGGREGATIONS = {
+    "SUM", "AVG", "AVERAGE", "COUNT", "COUNTD", "MIN", "MAX", "MEDIAN",
+    "ATTR", "NONE", "UNKNOWN", "PCT", "STDEV", "VAR", "SUM_SQR",
+}
 VALID_STATUS = {"active", "stale"}
 
 
@@ -73,9 +79,22 @@ def _row_to_kpi(row: pd.Series, created_by_default: str) -> OntologyKPI | None:
     if not name or not definition or name.lower() == "nan" or definition.lower() == "nan":
         return None
 
-    domain = str(row.get("domain", "General")).strip()
+    domain = str(row.get("domain", "")).strip()
     if domain.lower() == "nan" or not domain:
-        domain = "General"
+        domain = ""
+
+    sector_raw = row.get("sector")
+    subdomain_raw = row.get("subdomain")
+    sector = validate_sector(str(sector_raw).strip() if sector_raw is not None and str(sector_raw).lower() != "nan" else None)
+    subdomain = validate_subdomain(sector, str(subdomain_raw).strip() if subdomain_raw is not None and str(subdomain_raw).lower() != "nan" else None) if sector else None
+    if not sector or not subdomain:
+        sector, subdomain = normalize_scope(
+            str(sector_raw) if sector_raw is not None else None,
+            str(subdomain_raw) if subdomain_raw is not None else None,
+            legacy_domain=domain or None,
+        )
+    if not domain:
+        domain = f"{sector}/{subdomain}"
 
     agg = str(row.get("aggregation_type", "UNKNOWN")).strip().upper()
     if agg == "AVERAGE":
@@ -94,6 +113,8 @@ def _row_to_kpi(row: pd.Series, created_by_default: str) -> OntologyKPI | None:
         name=name,
         definition=definition,
         domain=domain,
+        sector=sector,
+        subdomain=subdomain,
         aliases=json.dumps(_split_list(row.get("aliases"))),
         aggregation_type=agg,
         valid_dimensions=json.dumps(_split_list(row.get("valid_dimensions"))),
@@ -141,6 +162,8 @@ def import_ontology_excel(
                 if update_existing:
                     existing.definition = kpi.definition
                     existing.domain = kpi.domain
+                    existing.sector = kpi.sector
+                    existing.subdomain = kpi.subdomain
                     existing.aliases = kpi.aliases
                     existing.aggregation_type = kpi.aggregation_type
                     existing.valid_dimensions = kpi.valid_dimensions

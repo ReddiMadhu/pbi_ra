@@ -14,12 +14,30 @@ class OntologyCache:
         self.db = db
         self.ontology_version = ontology_version or self.ONTOLOGY_VERSION
 
-    def _make_key(self, lineage: list[str], aggregation: str) -> str:
-        payload = json.dumps(sorted(lineage), sort_keys=True) + (aggregation or "").upper() + self.ontology_version
+    def _make_key(
+        self,
+        lineage: list[str],
+        aggregation: str,
+        sector: str | None = None,
+        subdomain: str | None = None,
+    ) -> str:
+        payload = (
+            json.dumps(sorted(lineage), sort_keys=True)
+            + (aggregation or "").upper()
+            + (sector or "")
+            + (subdomain or "")
+            + self.ontology_version
+        )
         return hashlib.sha256(payload.encode()).hexdigest()
 
-    def get(self, lineage: list[str], aggregation: str) -> dict | None:
-        key = self._make_key(lineage, aggregation)
+    def get(
+        self,
+        lineage: list[str],
+        aggregation: str,
+        sector: str | None = None,
+        subdomain: str | None = None,
+    ) -> dict | None:
+        key = self._make_key(lineage, aggregation, sector, subdomain)
         row = self.db.query(KPIOntologyCache).filter(KPIOntologyCache.cache_key == key).first()
         if not row:
             return None
@@ -32,8 +50,17 @@ class OntologyCache:
             "model_used": row.model_used,
         }
 
-    def set(self, lineage: list[str], aggregation: str, result: dict, *, commit: bool = True) -> None:
-        key = self._make_key(lineage, aggregation)
+    def set(
+        self,
+        lineage: list[str],
+        aggregation: str,
+        result: dict,
+        *,
+        sector: str | None = None,
+        subdomain: str | None = None,
+        commit: bool = True,
+    ) -> None:
+        key = self._make_key(lineage, aggregation, sector, subdomain)
         existing = self.db.query(KPIOntologyCache).filter(KPIOntologyCache.cache_key == key).first()
         if existing:
             return

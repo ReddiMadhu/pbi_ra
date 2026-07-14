@@ -7,9 +7,11 @@ from app.services.ontology.kpi_extractor import ExtractedKPI, extract_kpis_per_w
 from app.services.ontology.ontology_cache import OntologyCache
 from app.services.ontology.ontology_service import (
     match_kpi_to_ontology,
+    match_kpi_scoped,
     get_last_phase3_candidates,
     reset_phase3_counter,
 )
+from app.services.ontology.taxonomy import normalize_scope, suggest_from_legacy_domain
 from app.services.rationalization.blocking import should_skip_disjoint_pair
 from app.services.rationalization.pipeline import persist_pairwise
 from app.services.rationalization.scoring import (
@@ -19,7 +21,7 @@ from app.services.rationalization.scoring import (
 
 
 class MockCache:
-    def get(self, lineage, aggregation):
+    def get(self, lineage, aggregation, *args, **kwargs):
         return None
 
     def set(self, lineage, aggregation, result, **kwargs):
@@ -113,12 +115,14 @@ def test_phase1_lineage_no_false_match():
     assert result.get("matched_kpi_id") != "k1" or result["similarity_rationale"] != "Phase 1 lineage+agg match"
 
 
-def test_phase2_top5_candidates():
+def test_phase2_all_candidates_in_slice():
     reset_phase3_counter()
+    import math
     ontology = []
+    kpi_emb = [1.0] + [0.0] * 127
     for i in range(10):
-        emb = [0.0] * 128
-        emb[(i + 1) % 128] = 1.0  # offset so k0 is not perfect match
+        sim_target = 0.51 + (i * 0.02)  # 0.51 .. 0.69 — all in Phase 3 zone
+        emb = [math.sqrt(sim_target)] + [math.sqrt(1 - sim_target)] + [0.0] * 126
         ontology.append({
             "kpi_id": f"k{i}",
             "name": f"KPI {i}",
@@ -129,9 +133,6 @@ def test_phase2_top5_candidates():
             "embedding": emb,
         })
 
-    kpi_emb = [0.0] * 128
-    kpi_emb[0] = 1.0
-    kpi_emb[1] = 0.7  # partial overlap with k1 -> sim in ambiguous zone
     llm = MockLLM()
     match_kpi_to_ontology(
         kpi=ExtractedKPI(name="Unknown KPI XYZ", resolved_lineage=["X"], aggregation_type="SUM"),
@@ -141,7 +142,7 @@ def test_phase2_top5_candidates():
         embedding_fn=lambda t: tuple(kpi_emb),
     )
     candidates = get_last_phase3_candidates()
-    assert len(candidates) == 5
+    assert len(candidates) == 10
     assert "Candidates:" in llm.last_prompt
 
 
@@ -184,6 +185,27 @@ def test_per_visual_dedup():
     assert kpis[0].extraction_method == "named_measure"
 
 
+def test_visual_breakdown_extraction():
+    ws = WorksheetMetadata(
+        name="Loss by State",
+        rows=["State"],
+        columns=["Amount (Table - Sales)"],
+        mark_type="Bar",
+        measure_bindings=[{
+            "field": "Amount",
+            "aggregation": "SUM",
+            "table": "Sales",
+            "lineage": "Sales.Amount",
+        }],
+    )
+    wb = WorkbookMetadata(source_file="test.twb", worksheets=[ws], dashboards=[])
+    per_ws = extract_kpis_per_worksheet(wb, {"Amount": "Sales"})
+    kpis = per_ws.get("Loss by State", [])
+    names = {k.name for k in kpis}
+    assert "SUM of Sales.Amount" in names or "SUM of Amount" in names
+    assert any("by State" in n for n in names)
+
+
 def test_ontology_score_jaccard():
     kpis_a = {"k1", "k2", "k3"}
     kpis_b = {"k2", "k3", "k4"}
@@ -221,6 +243,209 @@ def test_cache_invalidation():
     key1 = cache1._make_key(["Sales.Amount"], "SUM")
     key2 = cache2._make_key(["Sales.Amount"], "SUM")
     assert key1 != key2
+
+
+def test_cache_key_includes_scope():
+    db = MagicMock()
+    cache = OntologyCache(db)
+    k1 = cache._make_key(["Sales.Amount"], "SUM", "insurance", "claims")
+    k2 = cache._make_key(["Sales.Amount"], "SUM", "insurance", "underwriting")
+    k3 = cache._make_key(["Sales.Amount"], "SUM", "banking", "retail")
+    assert k1 != k2
+    assert k1 != k3
+
+
+def test_scoped_match_subdomain_hit():
+    subdomain_kpis = [{"kpi_id": "c1", "name": "Loss Ratio", "aliases": [], "definition": "Claims"}]
+    sector_kpis = subdomain_kpis + [{"kpi_id": "u1", "name": "IGO Rate", "aliases": [], "definition": "UW"}]
+    result = match_kpi_scoped(
+        ExtractedKPI(name="Loss Ratio", resolved_lineage=[], aggregation_type="SUM"),
+        subdomain_kpis,
+        sector_kpis,
+        MockCache(),
+        llm=None,
+        sector="insurance",
+        subdomain="claims",
+    )
+    assert result["matched_kpi_id"] == "c1"
+
+
+def test_scoped_fallback_to_sector():
+    subdomain_kpis = [{"kpi_id": "c1", "name": "Other Claims KPI", "aliases": [], "definition": "X"}]
+    sector_kpis = subdomain_kpis + [{"kpi_id": "s1", "name": "Premium Volume", "aliases": [], "definition": "Shared"}]
+    result = match_kpi_scoped(
+        ExtractedKPI(name="Premium Volume", resolved_lineage=[], aggregation_type="SUM"),
+        subdomain_kpis,
+        sector_kpis,
+        MockCache(),
+        llm=None,
+        sector="insurance",
+        subdomain="claims",
+    )
+    assert result["matched_kpi_id"] == "s1"
+    assert "sector fallback" in (result.get("confidence_rationale") or "")
+
+
+def test_no_cross_sector_in_scoped_slices():
+    insurance_sector = [{"kpi_id": "c1", "name": "Loss Ratio", "aliases": [], "definition": "Claims"}]
+    result = match_kpi_scoped(
+        ExtractedKPI(name="Net Revenue", resolved_lineage=[], aggregation_type="SUM"),
+        [],
+        insurance_sector,
+        MockCache(),
+        llm=None,
+        sector="insurance",
+        subdomain="claims",
+    )
+    assert result["mapping_status"] == "not_found"
+
+
+def test_classification_taxonomy_normalize():
+    sector, subdomain = normalize_scope("insurance", "claims", legacy_domain="Claims & Risk")
+    assert sector == "insurance"
+    assert subdomain == "claims"
+    sector2, subdomain2 = suggest_from_legacy_domain("New Business Ops")
+    assert sector2 == "insurance"
+    assert subdomain2 == "underwriting"
+
+
+def test_countd_not_collapsed_to_count():
+    from app.services.ontology.kpi_extractor import _normalize_agg
+    from app.services.ontology.ontology_service import _agg_key
+
+    assert _normalize_agg("COUNTD") == "COUNTD"
+    assert _normalize_agg("CNT") == "COUNT"
+    assert _normalize_agg("COUNT") == "COUNT"
+    assert _agg_key("COUNTD") == "COUNTD"
+    assert _agg_key("CNT") == "COUNT"
+
+
+def test_phase3_prompt_includes_definitions():
+    reset_phase3_counter()
+    import math
+    kpi_emb = [1.0] + [0.0] * 127
+    sim_target = 0.70
+    emb = [math.sqrt(sim_target)] + [math.sqrt(1 - sim_target)] + [0.0] * 126
+    ontology = [{
+        "kpi_id": "k1",
+        "name": "Loss Ratio",
+        "aliases": [],
+        "definition": "Claims paid divided by earned premium across the book",
+        "aggregation_type": "NONE",
+        "representative_lineage": [],
+        "embedding": emb,
+    }]
+    llm = MockLLM()
+    match_kpi_to_ontology(
+        kpi=ExtractedKPI(
+            name="Paid to Premium",
+            resolved_lineage=[],
+            aggregation_type="UNKNOWN",
+            mark_type="Bar",
+            calculation_logic="SUM(Paid)/SUM(Premium)",
+            extraction_method="llm_summary",
+        ),
+        ontology_kpis=ontology,
+        cache=MockCache(),
+        llm=llm,
+        embedding_fn=lambda t: tuple(kpi_emb),
+    )
+    assert "definition" in llm.last_prompt
+    assert "mark_type" in llm.last_prompt
+    assert "calculation_logic" in llm.last_prompt
+    assert "Claims paid" in llm.last_prompt
+
+
+def test_mark_card_extraction():
+    from app.models.metadata import CalculatedFieldMetadata
+
+    ws = WorksheetMetadata(
+        name="Color Sheet",
+        rows=["State"],
+        columns=[],
+        filters_and_marks=["Loss Ratio"],
+        mark_type="Map",
+        measure_bindings=[],
+        used_calculated_fields=[],
+    )
+    ds = DatasourceMetadata(
+        name="ds",
+        caption=None,
+        version=None,
+        calculated_fields=[
+            CalculatedFieldMetadata(
+                name="Loss Ratio",
+                caption="Loss Ratio",
+                formula="SUM([Paid])/SUM([Premium])",
+                datatype="real",
+            )
+        ],
+    )
+    wb = WorkbookMetadata(source_file="test.twb", datasources=[ds], worksheets=[ws], dashboards=[])
+    per_ws = extract_kpis_per_worksheet(wb, {"Paid": "Claims", "Premium": "Premium"})
+    kpis = per_ws.get("Color Sheet", [])
+    assert any(k.extraction_method == "mark_card" and k.name == "Loss Ratio" for k in kpis)
+
+
+def test_ai_summary_extraction_and_dedup():
+    from app.services.ontology.kpi_extractor import extract_from_ai_summary
+
+    ai = {
+        "summary": "test",
+        "kpis": [
+            {
+                "name": "Loss Ratio",
+                "confidence": 90,
+                "definition": "Claims / Premium",
+                "calculation_logic": "SUM(Paid)/SUM(Earned)",
+                "source_description": "From Claims dashboard",
+            },
+            {"name": "Already Extracted", "confidence": 80, "definition": "x"},
+        ],
+    }
+    kpis = extract_from_ai_summary(ai)
+    assert len(kpis) == 2
+    assert kpis[0].extraction_method == "llm_summary"
+    assert kpis[0].aggregation_type == "UNKNOWN"
+    assert kpis[0].resolved_lineage == []
+    assert "SUM(Paid)" in (kpis[0].calculation_logic or "")
+
+
+def test_orphan_worksheets_flag():
+    from app.models.metadata import DashboardMetadata
+
+    orphan = WorksheetMetadata(
+        name="Orphan Sheet",
+        measure_bindings=[{
+            "field": "Amount",
+            "aggregation": "SUM",
+            "table": "Sales",
+            "lineage": "Sales.Amount",
+        }],
+    )
+    on_dash = WorksheetMetadata(
+        name="On Dash",
+        measure_bindings=[{
+            "field": "Amount",
+            "aggregation": "SUM",
+            "table": "Sales",
+            "lineage": "Sales.Amount",
+        }],
+    )
+    wb = WorkbookMetadata(
+        source_file="test.twb",
+        worksheets=[orphan, on_dash],
+        dashboards=[DashboardMetadata(name="D1", worksheets=["On Dash"])],
+    )
+    per_default = extract_kpis_per_worksheet(wb, {"Amount": "Sales"})
+    assert "Orphan Sheet" not in per_default
+    assert "On Dash" in per_default
+
+    per_orphans = extract_kpis_per_worksheet(
+        wb, {"Amount": "Sales"}, include_orphan_worksheets=True
+    )
+    assert "Orphan Sheet" in per_orphans
+    assert per_orphans["Orphan Sheet"][0].worksheet_id == "orphan"
 
 
 def test_blocking_skips_disjoint():

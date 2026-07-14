@@ -1,5 +1,6 @@
 import os
 from app.core.llm import get_llm
+from app.services.ontology.taxonomy import normalize_scope, suggest_from_legacy_domain
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
 from pydantic import BaseModel, Field
@@ -18,6 +19,8 @@ class TableResult(BaseModel):
 class ClassificationResult(BaseModel):
     worksheet_and_field_analysis: str = Field(description="A detailed step-by-step analysis of the worksheets, the charts within them, and their underlying fields. Explain what they measure and what insights they provide. You must generate this analysis BEFORE determining the domain.")
     domain: str = Field(description="The business domain of the dashboard. Must be one of: 'Claims & Risk', 'Customer Service', 'New Business Ops', 'Sales & pipeline', 'Product Level Performance'. If none of these fit, invent a highly specific custom domain name based on the dashboard context. Base this decision on your worksheet_and_field_analysis.")
+    ontology_sector: str = Field(description="Ontology sector for KPI matching. Must be exactly one of: 'insurance', 'banking', 'finance', 'operational'. For insurance dashboards use 'insurance'.")
+    ontology_subdomain: str = Field(description="Ontology subdomain within the sector. For insurance use one of: 'actuarial', 'claims', 'underwriting', 'shared'. actuarial=reserving/pricing/models; claims=loss ratio/severity/fraud; underwriting=IGO/NIGO/submission quality; shared=cross-cutting customer service metrics.")
     line_of_business: str = Field(description="The line of business the dashboard belongs to. Must be exactly one of: 'L&A', 'P&C', 'Worker compensation', 'reisurance', 'Auto insurance', 'health'. Choose the most appropriate based on analysis.")
     insight_level: str = Field(description="The primary level of granularity for the dashboard. MUST be exactly one of: 'Overall Level', 'Agent Level', 'State Level', 'Region Level', 'Product Level'. Use these strict rules: Choose 'Agent Level' ONLY if every KPI is related to agent-level analysis. Choose 'State Level' ONLY if every KPI is related to state-level analysis. Choose 'Region Level' ONLY if every KPI is related to region-level analysis. Choose 'Product Level' ONLY if every KPI is related to product-level analysis. Choose 'Overall Level' if the dashboard contains a mix of different granularities (e.g., some by state, some by region, some by agent).")
     complexity: float = Field(description="A complexity score from 1.0 to 10.0 based on the number of worksheets, datasources, and calculated fields.")
@@ -50,6 +53,7 @@ class DashboardClassificationAgent:
         elif ds_count > 3: type_str = "Data Ops"
         
         domain = f"{core_topic} {type_str}"
+        sector, subdomain = suggest_from_legacy_domain(domain)
         
         # Calculate a highly realistic complexity score based on counts
         complexity = min(10.0, max(1.0, float(len(worksheets) * 1.2 + len(datasources) * 1.5)))
@@ -66,6 +70,8 @@ class DashboardClassificationAgent:
         return ClassificationResult(
             worksheet_and_field_analysis="Fallback generation used. No in-depth analysis available.",
             domain=domain,
+            ontology_sector=sector,
+            ontology_subdomain=subdomain,
             line_of_business="L&A",
             insight_level="Overall Level",
             complexity=round(complexity, 1),
@@ -113,6 +119,15 @@ You MUST ONLY classify a dashboard into one of the following categories IF you e
    - EVEN IF  claims metrics are present , priortize this category when the intent is portfolio/ product analysis rathet than pure claims investigation.
 
 If none of these categories accurately describe the dashboard based on these strict rules, you must invent a concise, accurate custom domain name based on the dashboard context.
+
+ONTOLOGY SCOPING (required for KPI bank matching):
+After domain classification, also set ontology_sector and ontology_subdomain for hierarchical ontology matching.
+- ontology_sector: one of insurance, banking, finance, operational (use insurance for insurance/reinsurance dashboards)
+- ontology_subdomain for insurance:
+  * claims — loss ratio, claim severity, fraud, incident patterns, pure claims investigation
+  * underwriting — IGO/NIGO, proposal quality, submission quality, new business ops, sales pipeline
+  * actuarial — reserving, pricing models, product-level portfolio performance
+  * shared — customer service, case/TAT/SLA metrics, cross-cutting metrics
 
 CRITICAL INSTRUCTION:
 Do not write a generic summary. You MUST first thoroughly analyze the Worksheets, the name of the worksheets, the Worksheet Charts, Variables, and Calculated Field Formulas. In your `worksheet_and_field_analysis`, explain step-by-step what these specific charts (e.g., bar charts, line graphs) and variables (e.g., loss_ratio, premium_amount) are measuring and what insights they provide. 
@@ -186,7 +201,15 @@ Calculated Field Formulas: {formulas}
             )
             
             output = self.llm.invoke(_input.to_string())
-            return self.parser.parse(output.content)
+            result = self.parser.parse(output.content)
+            sector, subdomain = normalize_scope(
+                getattr(result, "ontology_sector", None),
+                getattr(result, "ontology_subdomain", None),
+                legacy_domain=result.domain,
+            )
+            result.ontology_sector = sector
+            result.ontology_subdomain = subdomain
+            return result
         except Exception as e:
             import traceback
             print(f"--- AI CALL FAILED in DashboardClassificationAgent.classify ---\n{e}")

@@ -372,16 +372,23 @@ class TableauParser:
                 def extract_measure_bindings(cols_text: str, rows_text: str) -> list:
                     bindings = []
                     seen = set()
+                    # Date truncations (yr:/qr:/mn:/dy:) are dimensions, not aggregations — excluded intentionally.
                     agg_pattern = re.compile(
-                        r'(?i)(sum|avg|cnt|count|countd|min|max|attr|median):\s*\[([^\]]+)\]'
+                        r'(?i)(sum|avg|cnt|count|countd|min|max|attr|median|pct|stdev|var|sum_sqr):\s*\[([^\]]+)\]'
                     )
                     for raw_text in (cols_text or "", rows_text or ""):
                         for match in agg_pattern.finditer(raw_text):
                             agg = match.group(1).upper()
-                            if agg == "COUNT":
+                            if agg == "CNT":
                                 agg = "COUNT"
-                            elif agg == "CNT":
-                                agg = "COUNT"
+                            elif agg == "PCT":
+                                agg = "PCT"
+                            elif agg == "STDEV":
+                                agg = "STDEV"
+                            elif agg == "VAR":
+                                agg = "VAR"
+                            elif agg == "SUM_SQR":
+                                agg = "SUM_SQR"
                             field_ref = match.group(2).strip()
                             col_part = field_ref
                             if '].[' in field_ref:
@@ -435,7 +442,11 @@ class TableauParser:
                 cols_text_val = cols_el.text if cols_el is not None and cols_el.text is not None else ""
                 rows_text_val = rows_el.text if rows_el is not None and rows_el.text is not None else ""
                 raw_text = (cols_text_val + " " + rows_text_val).lower()
-                has_measures = any(agg in raw_text for agg in ['sum:', 'avg:', 'cnt:', 'count:', 'min:', 'max:', 'attr:'])
+                measure_tokens = [
+                    'sum:', 'avg:', 'cnt:', 'count:', 'countd:', 'min:', 'max:', 'attr:',
+                    'median:', 'pct:', 'stdev:', 'var:', 'sum_sqr:',
+                ]
+                has_measures = any(agg in raw_text for agg in measure_tokens)
                 has_dates = any(dt in raw_text for dt in ['yr:', 'mn:', 'dy:', 'qr:', 'wk:', 'mdy:', 'date:'])
 
                 if mark_class.lower() in ['pie', 'shape', 'map', 'polygon', 'circle', 'line', 'bar', 'text', 'ganttbar']:
@@ -446,8 +457,8 @@ class TableauParser:
                     elif has_measures and len(ws_meta.columns) > 0 and len(ws_meta.rows) > 0:
                         cols_text = (cols_el.text or "").lower()
                         rows_text = (rows_el.text or "").lower()
-                        cols_has_measure = any(agg in cols_text for agg in ['sum:', 'avg:', 'cnt:', 'count:', 'min:', 'max:'])
-                        rows_has_measure = any(agg in rows_text for agg in ['sum:', 'avg:', 'cnt:', 'count:', 'min:', 'max:'])
+                        cols_has_measure = any(agg in cols_text for agg in measure_tokens)
+                        rows_has_measure = any(agg in rows_text for agg in measure_tokens)
                         if cols_has_measure and rows_has_measure:
                             mark_class = 'Scatter Plot'
                         else:

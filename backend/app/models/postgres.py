@@ -39,6 +39,8 @@ class Dashboard(Base):
     workbook_id = Column(Integer, ForeignKey("workbooks.id"))
     name = Column(String, index=True)
     domain_classification = Column(String, nullable=True)
+    ontology_sector = Column(String, nullable=True, index=True)
+    ontology_subdomain = Column(String, nullable=True, index=True)
     line_of_business = Column(String, nullable=True)
     user_groups = Column(JSON, nullable=True)
     complexity_score = Column(Float, nullable=True)
