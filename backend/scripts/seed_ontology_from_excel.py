@@ -438,9 +438,17 @@ def _process_dataframe(
     dry_run: bool,
     update_existing: bool,
     preview: list[dict],
-) -> tuple[int, int, int, dict[str, str | None]]:
+    skip_if_invalid: bool = False,
+) -> tuple[int, int, int, dict[str, str | None], bool]:
+    """
+    Returns (inserted, updated, skipped, resolved, processed).
+    If skip_if_invalid and sheet lacks Measurement(KPI)/name → processed=False.
+    """
     resolved = resolve_column_map(list(df.columns), column_map)
-    if not resolved.get("name") and not (resolved.get("table_name") and resolved.get("column_name")):
+    has_name = bool(resolved.get("name") or (resolved.get("table_name") and resolved.get("column_name")))
+    if not has_name:
+        if skip_if_invalid:
+            return 0, 0, 0, resolved, False
         raise ValueError(
             f"Could not resolve Measurement(KPI) / name on sheet '{excel_tab_name}'. "
             f"Headers: {list(df.columns)}. Resolved: {resolved}."
@@ -486,7 +494,7 @@ def _process_dataframe(
             db.add(kpi)
         inserted += 1
 
-    return inserted, updated, skipped, resolved
+    return inserted, updated, skipped, resolved, True
 
 
 def seed_from_excel(
@@ -528,11 +536,13 @@ def seed_from_excel(
     preview: list[dict] = []
     resolved_by_sheet: dict[str, dict] = {}
     rows_read = 0
+    sheets_loaded: list[str] = []
+    sheets_skipped: list[dict] = []
 
     try:
         for tab_name, df in frames:
             rows_read += len(df)
-            ins, upd, skip, resolved = _process_dataframe(
+            ins, upd, skip, resolved, processed = _process_dataframe(
                 db,
                 df,
                 column_map,
@@ -541,11 +551,27 @@ def seed_from_excel(
                 dry_run=dry_run,
                 update_existing=update_existing,
                 preview=preview,
+                skip_if_invalid=all_sheets,
             )
+            resolved_by_sheet[tab_name] = resolved
+            if not processed:
+                sheets_skipped.append({
+                    "sheet": tab_name,
+                    "reason": "no Measurement(KPI)/name column",
+                    "headers": [str(c) for c in df.columns],
+                })
+                continue
+            sheets_loaded.append(tab_name)
             inserted += ins
             updated += upd
             skipped += skip
-            resolved_by_sheet[tab_name] = resolved
+
+        if all_sheets and not sheets_loaded:
+            raise ValueError(
+                "No worksheet had Measurement(KPI)/name columns. "
+                f"Skipped sheets: {sheets_skipped}. "
+                "Run with --inspect --all-sheets to see each tab's headers."
+            )
 
         if not dry_run:
             db.commit()
@@ -560,7 +586,8 @@ def seed_from_excel(
     return {
         "file": str(path),
         "all_sheets": all_sheets,
-        "sheets_processed": sheet_names,
+        "sheets_processed": sheets_loaded,
+        "sheets_skipped": sheets_skipped,
         "resolved_map_by_sheet": resolved_by_sheet,
         "rows_read": rows_read,
         "inserted": inserted,

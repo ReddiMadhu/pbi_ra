@@ -246,23 +246,31 @@ def import_ontology_excel(
     errors: list[str] = []
     rows_read = 0
     sheets_processed: list[str] = []
+    sheets_skipped: list[dict] = []
     resolved_by_sheet: dict[str, dict] = {}
 
     try:
         for tab_name, df in frames:
-            sheets_processed.append(tab_name)
             rows_read += len(df)
             resolved = _resolve_headers(df)
             resolved_by_sheet[tab_name] = resolved
 
             missing = [f for f in REQUIRED_LOGICAL if not resolved.get(f)]
             if missing:
+                if all_sheets:
+                    sheets_skipped.append({
+                        "sheet": tab_name,
+                        "reason": f"missing columns: {', '.join(missing)}",
+                        "headers": [str(c) for c in df.columns],
+                    })
+                    continue
                 raise ValueError(
                     f"Sheet '{tab_name}' missing required columns for: {', '.join(missing)}. "
                     f"Need Measurement(KPI)/name and Definition. "
                     f"Detected headers: {list(df.columns)}. Resolved: {resolved}"
                 )
 
+            sheets_processed.append(tab_name)
             for _, row in df.iterrows():
                 kpi = _row_to_kpi(row, resolved, created_by_default, excel_tab_name=tab_name)
                 if not kpi:
@@ -290,6 +298,12 @@ def import_ontology_excel(
                     db.add(kpi)
                 inserted += 1
 
+        if all_sheets and not sheets_processed:
+            raise ValueError(
+                "No worksheet had Measurement(KPI) + Definition columns. "
+                f"Skipped: {sheets_skipped}"
+            )
+
         if not dry_run:
             db.commit()
             embed_ontology_kpis(db)
@@ -304,6 +318,7 @@ def import_ontology_excel(
         "file": str(path),
         "all_sheets": all_sheets,
         "sheets_processed": sheets_processed,
+        "sheets_skipped": sheets_skipped,
         "resolved_map_by_sheet": resolved_by_sheet,
         "rows_read": rows_read,
         "inserted": inserted,
