@@ -28,6 +28,10 @@ interface Taxonomy {
 
 type Tab = 'bank' | 'pending_review' | 'not_found';
 
+function norm(s: string | null | undefined): string {
+  return (s || '').trim().toLowerCase();
+}
+
 export function OntologyBankView({ filterReportId }: { filterReportId?: string }) {
   const [tab, setTab] = useState<Tab>(filterReportId ? 'pending_review' : 'bank');
   const [kpis, setKpis] = useState<CanonicalKPI[]>([]);
@@ -48,11 +52,36 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
     [taxonomy],
   );
 
-  const load = async () => {
+  /** Match filter key/label against KPI's stored subdomain (handles sheet labels vs keys). */
+  const matchesSubdomain = useCallback(
+    (kpiSub: string | null | undefined, filter: string) => {
+      if (filter === 'all') return true;
+      const raw = norm(kpiSub);
+      if (!raw) return false;
+      const f = norm(filter);
+      if (raw === f) return true;
+      // filter is canonical key, KPI has display label (or vice versa)
+      const filterLabel = norm(labelSubdomain(filter));
+      const kpiLabel = norm(labelSubdomain(kpiSub));
+      if (raw === filterLabel || kpiLabel === f || kpiLabel === filterLabel) return true;
+      // Claims_Litigation vs claims_litigation vs Claims Litigation
+      const compact = (s: string) => s.replace(/[&_\s-]+/g, '');
+      return compact(raw) === compact(f) || compact(raw) === compact(filterLabel);
+    },
+    [labelSubdomain],
+  );
+
+  const matchesSector = useCallback((kpiSector: string | null | undefined, filter: string) => {
+    if (filter === 'all') return true;
+    return norm(kpiSector) === norm(filter);
+  }, []);
+
+  const load = useCallback(async () => {
     setLoading(true);
     try {
+      // Always load full bank so filter option counts stay accurate
       const [kpiRes, pendingRes, taxRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/v1/ontology/kpis?limit=500`),
+        fetch(`${API_BASE_URL}/api/v1/ontology/kpis?limit=5000&status=active`),
         fetch(`${API_BASE_URL}/api/v1/ontology/mappings/pending?limit=500`),
         fetch(`${API_BASE_URL}/api/v1/ontology/taxonomy`),
       ]);
@@ -69,11 +98,11 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const sectors = useMemo(() => {
     const fromTax = taxonomy?.sectors ?? [];
@@ -82,16 +111,42 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
   }, [kpis, taxonomy]);
 
   const subdomains = useMemo(() => {
-    // Prefer full taxonomy list so new subdomains (e.g. CX & Digital) appear even before KPIs exist
     if (sectorFilter === 'all') {
+      const active = taxonomy?.active_sectors ?? ['insurance'];
+      const fromActive = active.flatMap((s) => taxonomy?.subdomains_by_sector?.[s] ?? []);
       const fromTax = Object.values(taxonomy?.subdomains_by_sector ?? {}).flat();
       const fromKpis = kpis.map((k) => k.subdomain).filter(Boolean);
-      return ['all', ...Array.from(new Set([...fromTax, ...fromKpis]))];
+      return ['all', ...Array.from(new Set([...fromActive, ...fromTax, ...fromKpis]))];
     }
     const fromTax = taxonomy?.subdomains_by_sector?.[sectorFilter] ?? [];
-    const fromKpis = kpis.filter((k) => k.sector === sectorFilter).map((k) => k.subdomain).filter(Boolean);
+    const fromKpis = kpis
+      .filter((k) => matchesSector(k.sector, sectorFilter))
+      .map((k) => k.subdomain)
+      .filter(Boolean);
     return ['all', ...Array.from(new Set([...fromTax, ...fromKpis]))];
-  }, [kpis, taxonomy, sectorFilter]);
+  }, [kpis, taxonomy, sectorFilter, matchesSector]);
+
+  const sectorCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: kpis.length };
+    for (const s of sectors) {
+      if (s === 'all') continue;
+      counts[s] = kpis.filter((k) => matchesSector(k.sector, s)).length;
+    }
+    return counts;
+  }, [kpis, sectors, matchesSector]);
+
+  const subdomainCounts = useMemo(() => {
+    // Counts respect the selected sector so Marketing shows count within insurance when filtered
+    const pool = sectorFilter === 'all'
+      ? kpis
+      : kpis.filter((k) => matchesSector(k.sector, sectorFilter));
+    const counts: Record<string, number> = { all: pool.length };
+    for (const d of subdomains) {
+      if (d === 'all') continue;
+      counts[d] = pool.filter((k) => matchesSubdomain(k.subdomain, d)).length;
+    }
+    return counts;
+  }, [kpis, subdomains, sectorFilter, matchesSector, matchesSubdomain]);
 
   const filteredKpis = useMemo(() => {
     return kpis.filter((k) => {
@@ -99,14 +154,15 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
       const matchSearch =
         !q ||
         k.name.toLowerCase().includes(q) ||
-        k.definition.toLowerCase().includes(q) ||
+        (k.definition || '').toLowerCase().includes(q) ||
         k.aliases?.some((a) => a.toLowerCase().includes(q)) ||
-        labelSubdomain(k.subdomain).toLowerCase().includes(q);
-      const matchSector = sectorFilter === 'all' || k.sector === sectorFilter;
-      const matchSubdomain = subdomainFilter === 'all' || k.subdomain === subdomainFilter;
+        labelSubdomain(k.subdomain).toLowerCase().includes(q) ||
+        (k.domain || '').toLowerCase().includes(q);
+      const matchSector = matchesSector(k.sector, sectorFilter);
+      const matchSubdomain = matchesSubdomain(k.subdomain, subdomainFilter);
       return matchSearch && matchSector && matchSubdomain;
     });
-  }, [kpis, search, sectorFilter, subdomainFilter, labelSubdomain]);
+  }, [kpis, search, sectorFilter, subdomainFilter, labelSubdomain, matchesSector, matchesSubdomain]);
 
   const filteredMappings = useMemo(() => {
     let list = mappings;
@@ -121,6 +177,8 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
   const pendingCount = mappings.filter((m) => m.mapping_status === 'pending_review').length;
   const isSectorInactive = (sector: string) =>
     taxonomy?.active_sectors ? !taxonomy.active_sectors.includes(sector) : false;
+
+  const filtersActive = sectorFilter !== 'all' || subdomainFilter !== 'all' || Boolean(search.trim());
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -145,6 +203,7 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
         {(['bank', 'pending_review', 'not_found'] as Tab[]).map((t) => (
           <button
             key={t}
+            type="button"
             onClick={() => setTab(t)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               tab === t ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
@@ -166,7 +225,11 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
           />
         </div>
         {tab === 'bank' && (
-          <div className="flex items-center gap-2 flex-wrap">
+          <div
+            className="flex items-center gap-2 flex-wrap"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
             <Filter className="w-4 h-4 text-muted-foreground" />
             <select
               className="px-3 py-2 rounded-lg border border-border bg-background text-sm"
@@ -178,24 +241,49 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
             >
               {sectors.map((s) => (
                 <option key={s} value={s}>
-                  {s === 'all' ? 'All sectors' : `${s}${isSectorInactive(s) ? ' (inactive)' : ''}`}
+                  {s === 'all'
+                    ? `All sectors (${sectorCounts.all ?? 0})`
+                    : `${s}${isSectorInactive(s) ? ' (inactive)' : ''} (${sectorCounts[s] ?? 0})`}
                 </option>
               ))}
             </select>
             <select
-              className="px-3 py-2 rounded-lg border border-border bg-background text-sm min-w-[180px]"
+              className="px-3 py-2 rounded-lg border border-border bg-background text-sm min-w-[200px]"
               value={subdomainFilter}
               onChange={(e) => setSubdomainFilter(e.target.value)}
             >
               {subdomains.map((d) => (
                 <option key={d} value={d}>
-                  {d === 'all' ? 'All subdomains' : labelSubdomain(d)}
+                  {d === 'all'
+                    ? `All subdomains (${subdomainCounts.all ?? 0})`
+                    : `${labelSubdomain(d)} (${subdomainCounts[d] ?? 0})`}
                 </option>
               ))}
             </select>
+            {filtersActive && (
+              <button
+                type="button"
+                className="px-3 py-2 text-xs rounded-lg border border-border text-muted-foreground hover:bg-muted"
+                onClick={() => {
+                  setSectorFilter('all');
+                  setSubdomainFilter('all');
+                  setSearch('');
+                }}
+              >
+                Clear filters
+              </button>
+            )}
           </div>
         )}
       </div>
+
+      {tab === 'bank' && filtersActive && !loading && (
+        <p className="text-xs text-muted-foreground">
+          Showing {filteredKpis.length} KPI{filteredKpis.length === 1 ? '' : 's'}
+          {sectorFilter !== 'all' ? ` · sector: ${sectorFilter}` : ''}
+          {subdomainFilter !== 'all' ? ` · subdomain: ${labelSubdomain(subdomainFilter)}` : ''}
+        </p>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-20 text-muted-foreground gap-2">
@@ -206,18 +294,40 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
           {filteredKpis.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              No canonical KPIs yet. Run bootstrap or promote mappings.
+              {filtersActive
+                ? 'No KPIs match the selected sector / subdomain filters.'
+                : 'No canonical KPIs yet. Run Excel seed or promote mappings.'}
             </div>
           ) : (
             filteredKpis.map((kpi) => (
               <div
                 key={kpi.kpi_id}
+                role="button"
+                tabIndex={0}
                 onClick={() => setSelectedKpi(kpi)}
-                className="p-4 rounded-xl border border-border bg-card hover:border-primary/30 cursor-pointer transition-all"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') setSelectedKpi(kpi);
+                }}
+                className="p-4 rounded-xl border border-border bg-card hover:border-primary/30 cursor-pointer transition-all text-left"
               >
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className="font-semibold">{kpi.name}</span>
-                  <Badge variant="outline" className="text-[10px]">
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (kpi.sector) setSectorFilter(kpi.sector);
+                      if (kpi.subdomain) {
+                        // Prefer taxonomy key if we can map display → key
+                        const taxKeys = taxonomy?.subdomains_by_sector?.[kpi.sector || ''] ?? [];
+                        const hit =
+                          taxKeys.find((k) => matchesSubdomain(kpi.subdomain, k)) || kpi.subdomain;
+                        setSubdomainFilter(hit);
+                      }
+                    }}
+                    title="Filter by this sector / subdomain"
+                  >
                     {kpi.sector}/{labelSubdomain(kpi.subdomain)}
                   </Badge>
                   {kpi.is_active_sector === false && (

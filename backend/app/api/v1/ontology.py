@@ -99,17 +99,50 @@ def list_kpis(
     subdomain: str | None = None,
     status: str = "active",
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 2000,
     db: Session = Depends(get_db),
 ):
+    from app.services.ontology.taxonomy import (
+        SUBDOMAIN_DISPLAY_LABELS,
+        canonicalize_subdomain,
+        validate_sector,
+    )
+
     q = db.query(OntologyKPI).filter(OntologyKPI.status == status)
     if domain:
         q = q.filter(OntologyKPI.domain == domain)
-    if sector:
-        q = q.filter(OntologyKPI.sector == sector)
-    if subdomain:
-        q = q.filter(OntologyKPI.subdomain == subdomain)
-    rows = q.offset(skip).limit(limit).all()
+
+    sec = validate_sector(sector) if sector else None
+    if sector and not sec:
+        sec = sector.strip().lower()
+    if sec:
+        # Case-insensitive sector match via Python post-filter (SQLite)
+        pass
+
+    rows = q.offset(skip).limit(max(limit, 5000)).all()
+
+    if sec:
+        rows = [r for r in rows if (r.sector or "").strip().lower() == sec]
+
+    sub = canonicalize_subdomain(subdomain) if subdomain else None
+    if subdomain and not sub:
+        sub = subdomain.strip().lower().replace(" ", "_")
+    if sub:
+        label = SUBDOMAIN_DISPLAY_LABELS.get(sub, "").lower()
+        want = {sub, (subdomain or "").strip().lower(), label}
+        want.discard("")
+
+        def _sub_match(raw: str | None) -> bool:
+            s = (raw or "").strip()
+            if not s:
+                return False
+            if s.lower() in want:
+                return True
+            canon = canonicalize_subdomain(s)
+            return bool(canon and canon in want)
+
+        rows = [r for r in rows if _sub_match(r.subdomain)]
+
     return [_kpi_to_dict(r) for r in rows]
 
 
