@@ -154,14 +154,26 @@ def _row_to_kpi(
 
     domain = _cell(row, resolved.get("domain"))
     applicability = _cell(row, resolved.get("applicability"))
-    if not applicability and excel_tab_name:
-        applicability = excel_tab_name
-
     sector_raw = _cell(row, resolved.get("sector"))
     subdomain_raw = _cell(row, resolved.get("subdomain"))
 
-    if not sector_raw and not subdomain_raw and applicability:
-        sector_raw, subdomain_raw = suggest_scope_from_applicability(applicability)
+    from app.services.ontology.taxonomy import canonicalize_subdomain
+
+    # Prefer Excel TAB name as subdomain (each sheet = bank slice)
+    tab_mapped = False
+    if not sector_raw and not subdomain_raw and excel_tab_name and canonicalize_subdomain(excel_tab_name):
+        sector_raw, subdomain_raw = suggest_scope_from_applicability(excel_tab_name)
+        tab_mapped = True
+        if not domain:
+            domain = excel_tab_name
+
+    if not tab_mapped and not sector_raw and not subdomain_raw and applicability:
+        parts = [p.strip() for p in applicability.replace("|", ",").replace(";", ",").split(",") if p.strip()]
+        picked = next((p for p in parts if canonicalize_subdomain(p)), None)
+        if picked:
+            sector_raw, subdomain_raw = suggest_scope_from_applicability(picked)
+        else:
+            sector_raw, subdomain_raw = suggest_scope_from_applicability(applicability)
         if not domain:
             domain = applicability
 
@@ -171,10 +183,10 @@ def _row_to_kpi(
         sector, subdomain = normalize_scope(
             sector_raw or None,
             subdomain_raw or None,
-            legacy_domain=domain or None,
+            legacy_domain=domain or excel_tab_name or None,
         )
     if not domain:
-        domain = applicability or f"{sector}/{subdomain}"
+        domain = excel_tab_name or applicability or f"{sector}/{subdomain}"
 
     agg = (_cell(row, resolved.get("aggregation_type")) or "UNKNOWN").upper()
     if agg == "AVERAGE":

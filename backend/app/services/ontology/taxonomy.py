@@ -75,13 +75,13 @@ SUBDOMAIN_ALIASES: dict[str, str] = {
     "claimns_ligtation": "claims_litigation",  # typo
     "claims": "claims_litigation",
     "litigation": "claims_litigation",
-    # service & operations
+    # service & operations — keep these specific; do NOT map bare "service"/"operations"
+    # alone (too broad — caused many KPI sheets to land in Service & Operations)
     "service_and_operations": "service_and_operations",
     "service & operations": "service_and_operations",
     "service and operations": "service_and_operations",
     "service operations": "service_and_operations",
-    "operations": "service_and_operations",
-    "service": "service_and_operations",
+    "service_operations": "service_and_operations",
     # cx & digital
     "cx_and_digital": "cx_and_digital",
     "cx & digital": "cx_and_digital",

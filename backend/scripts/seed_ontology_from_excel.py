@@ -300,10 +300,6 @@ def row_to_kpi(
     fields_required = _cell(row, resolved.get("fields_required"))
     applicability = _cell(row, resolved.get("applicability"))
 
-    # When loading all Excel tabs, use the tab name as applicability if cell is empty
-    if not applicability and excel_tab_name:
-        applicability = excel_tab_name
-
     name = _build_name(name, table, column, worksheet)
     if not name:
         return None
@@ -315,16 +311,42 @@ def row_to_kpi(
     sector_raw = _cell(row, resolved.get("sector"))
     subdomain_raw = _cell(row, resolved.get("subdomain"))
 
-    # Infer scope from Applicability sheet names / Excel tab when sector/subdomain absent
-    if not sector_raw and not subdomain_raw and applicability:
-        sec_i, sub_i = suggest_scope_from_applicability(applicability)
-        sector_raw = sec_i
-        subdomain_raw = sub_i
-        if not domain:
-            domain = applicability
-    else:
-        sector_raw = sector_raw or defaults.get("sector")
-        subdomain_raw = subdomain_raw or defaults.get("subdomain")
+    # Scope priority for bank Excel:
+    # 1) Explicit sector/subdomain columns
+    # 2) Excel TAB name (each sheet = subdomain bank: Marketing, Claims_Litigation, …)
+    # 3) Applicability cell (only if tab did not map — do NOT take first of a multi-list over the tab)
+    # 4) Defaults last (avoid dumping everything into Service & Operations)
+    tab_mapped = False
+    if not sector_raw and not subdomain_raw and excel_tab_name:
+        tab_sec, tab_sub = suggest_scope_from_applicability(excel_tab_name)
+        # Only trust tab mapping when it isn't a blind DEFAULT for an unknown tab name
+        from app.services.ontology.taxonomy import canonicalize_subdomain
+        if canonicalize_subdomain(excel_tab_name):
+            sector_raw, subdomain_raw = tab_sec, tab_sub
+            tab_mapped = True
+            if not domain:
+                domain = excel_tab_name
+
+    if not tab_mapped and not sector_raw and not subdomain_raw and applicability:
+        # Single known value → use it; multi-value → prefer first that canonicalizes
+        from app.services.ontology.taxonomy import canonicalize_subdomain
+        parts = [p.strip() for p in applicability.replace("|", ",").replace(";", ",").split(",") if p.strip()]
+        picked = None
+        for part in parts:
+            if canonicalize_subdomain(part):
+                picked = part
+                break
+        if picked:
+            sector_raw, subdomain_raw = suggest_scope_from_applicability(picked)
+            if not domain:
+                domain = applicability
+        else:
+            sector_raw, subdomain_raw = suggest_scope_from_applicability(applicability)
+
+    if not sector_raw:
+        sector_raw = defaults.get("sector")
+    if not subdomain_raw:
+        subdomain_raw = defaults.get("subdomain")
 
     sector = validate_sector(sector_raw)
     subdomain = validate_subdomain(sector, subdomain_raw) if sector else None
@@ -332,10 +354,10 @@ def row_to_kpi(
         sector, subdomain = normalize_scope(
             sector_raw or None,
             subdomain_raw or None,
-            legacy_domain=domain or None,
+            legacy_domain=domain or excel_tab_name or None,
         )
     if not domain:
-        domain = applicability or f"{sector}/{subdomain}"
+        domain = excel_tab_name or applicability or f"{sector}/{subdomain}"
 
     agg = (_cell(row, resolved.get("aggregation_type")) or defaults.get("aggregation_type", "UNKNOWN")).upper()
     if agg == "AVERAGE":

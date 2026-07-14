@@ -323,7 +323,39 @@ def test_applicability_sheet_scope_mapping():
     assert suggest_scope_from_applicability("CX&Digital") == ("insurance", "cx_and_digital")
     # Multiple sheets → first listed wins (not collapsed to a fake shared bucket)
     assert suggest_scope_from_applicability("Marketing, Claims_Litigation") == ("insurance", "marketing")
+    # Bare "service" / "operations" must NOT dump into Service & Operations
+    from app.services.ontology.taxonomy import canonicalize_subdomain
+    assert canonicalize_subdomain("service") is None
+    assert canonicalize_subdomain("operations") is None
+    assert canonicalize_subdomain("Service & Operations") == "service_and_operations"
 
+
+def test_excel_tab_preferred_over_applicability_list():
+    from scripts.seed_ontology_from_excel import resolve_column_map, COLUMN_MAP, row_to_kpi
+    import pandas as pd
+
+    headers = [
+        "Measurement(KPI)",
+        "Definition",
+        "Fields required to create the Metric",
+        "Applicablity with Sheet Names",
+    ]
+    resolved = resolve_column_map(headers, COLUMN_MAP)
+    row = pd.Series({
+        "Measurement(KPI)": "Average Premium",
+        "Definition": "Avg premium",
+        "Fields required to create the Metric": "Premium",
+        # Cell lists Service first — old logic wrongly preferred Service & Operations
+        "Applicablity with Sheet Names": "Service & Operations, Marketing",
+    })
+    kpi = row_to_kpi(
+        row,
+        resolved,
+        {"sector": "insurance", "subdomain": "service_and_operations", "aggregation_type": "UNKNOWN", "status": "active", "created_by": "test"},
+        excel_tab_name="Marketing",
+    )
+    assert kpi is not None
+    assert kpi.subdomain == "marketing"
 
 def test_bank_format_header_resolution():
     from scripts.seed_ontology_from_excel import resolve_column_map, COLUMN_MAP, row_to_kpi, _norm_header
