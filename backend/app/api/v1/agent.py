@@ -11,15 +11,16 @@ from app.models.postgres import Dashboard, Workbook, DatasourceModel
 from app.agents.workflows import stream_agent_workflow
 from app.agents.classification import AreaDescriptionAgent
 from app.services.ontology.ontology_service import enrich_with_ontology_inventory
-from app.services.rationalization.scoring import (
-    compute_ontology_score,
-    compute_composite_score,
-    compute_data_source_score,
-    compute_semantic_model_score,
-    compute_dax_structural_score,
-    compute_visual_score,
-    compute_filter_score,
-    get_kpi_set,
+from app.services.rationalization.scoring import get_kpi_set
+from app.services.rationalization.blocking import (
+    block_by_ontology,
+    order_pairs_by_ontology,
+    should_skip_disjoint_pair,
+)
+from app.services.rationalization.pipeline import (
+    _canonical_pair_ids,
+    compute_pair_layers,
+    persist_pairwise_scores,
 )
 def get_user_group_mapping():
     import pandas as pd
@@ -651,48 +652,70 @@ def get_recommendations(db: Session = Depends(get_db)):
                         d1["duplicate_reason"] = f"100% overlap with '{d2['name']}' (structurally identical) but less active ({d1['days_ago']} days ago vs {d2['days_ago']} days ago)."
 
     # 3. Merge Candidate Check (based on datasource, user group, KPI overlap > 60%)
-    for i, d1 in enumerate(dashboards_data):
-        if d1["is_duplicate"]:
-            continue
-        for j, d2 in enumerate(dashboards_data):
-            if i == j:
-                continue
-            if d2["is_duplicate"]:
-                continue
-                
-            # A. Datasource match
-            shared_ds = get_shared_datasources(d1["workbook_id"], d2["workbook_id"], wb_ds_map)
-            if not shared_ds:
-                continue
-                
-            # B. User group match
-            shared_groups = {g.strip().lower() for g in d1["user_groups"]} & {g.strip().lower() for g in d2["user_groups"]}
-            if not shared_groups:
-                continue
-                
-            # C. KPI / ontology overlap
-            kpi_overlap = calculate_kpi_overlap(d1, d2)
-            ontology_overlap = 0.0
-            ontology_overlap_kpis: list[str] = []
-            try:
-                set_a = get_kpi_set(d1["id"], db)
-                set_b = get_kpi_set(d2["id"], db)
-                if set_a or set_b:
-                    ontology_overlap = compute_ontology_score(d1["id"], d2["id"], db)
-                    ontology_overlap_kpis = sorted(set_a & set_b)
-                    kpi_overlap = max(kpi_overlap, ontology_overlap)
-            except Exception:
-                pass
+    kpi_sets = {str(d["id"]): get_kpi_set(d["id"], db) for d in dashboards_data}
+    block_by_ontology(kpi_sets)
+    all_pairs = [
+        (i, j)
+        for i in range(len(dashboards_data))
+        for j in range(len(dashboards_data))
+        if i != j
+    ]
+    ordered_pairs = order_pairs_by_ontology(all_pairs, kpi_sets)
+    skipped_pairs = 0
+    pairs_to_persist: list[tuple] = []
+    pair_layers_cache: dict[tuple[str, str], tuple[dict, float]] = {}
 
-            if kpi_overlap > 0.60:
-                d1["merge_candidates"].append({
-                    "name": d2["name"],
-                    "overlap_pct": int(kpi_overlap * 100),
-                    "ontology_overlap_pct": int(ontology_overlap * 100),
-                    "ontology_overlap_kpis": ontology_overlap_kpis,
-                    "shared_datasources": shared_ds,
-                    "user_groups": d2["user_groups"]
-                })
+    def get_pair_layers(d1: dict, d2: dict) -> tuple[dict, float]:
+        key = _canonical_pair_ids(d1["id"], d2["id"])
+        if key not in pair_layers_cache:
+            pair_layers_cache[key] = compute_pair_layers(
+                d1, d2, db, wb_ds_map, calculate_kpi_overlap, get_shared_datasources, kpi_sets=kpi_sets
+            )
+        return pair_layers_cache[key]
+
+    for i, j in ordered_pairs:
+        d1 = dashboards_data[i]
+        d2 = dashboards_data[j]
+        if d1["is_duplicate"] or d2["is_duplicate"]:
+            continue
+
+        shared_ds = get_shared_datasources(d1["workbook_id"], d2["workbook_id"], wb_ds_map)
+        if should_skip_disjoint_pair(d1["id"], d2["id"], kpi_sets, shared_ds):
+            skipped_pairs += 1
+            continue
+
+        if not shared_ds:
+            continue
+
+        shared_groups = {g.strip().lower() for g in d1["user_groups"]} & {g.strip().lower() for g in d2["user_groups"]}
+        if not shared_groups:
+            continue
+
+        kpi_overlap = calculate_kpi_overlap(d1, d2)
+        ontology_overlap = 0.0
+        ontology_overlap_kpis: list[str] = []
+        try:
+            set_a = kpi_sets.get(str(d1["id"]), set())
+            set_b = kpi_sets.get(str(d2["id"]), set())
+            if set_a or set_b:
+                from app.services.rationalization.scoring import compute_ontology_score_from_sets
+                ontology_overlap = compute_ontology_score_from_sets(set_a, set_b)
+                ontology_overlap_kpis = sorted(set_a & set_b)
+                kpi_overlap = max(kpi_overlap, ontology_overlap)
+        except Exception:
+            pass
+
+        if kpi_overlap > 0.60:
+            layers, composite = get_pair_layers(d1, d2)
+            d1["merge_candidates"].append({
+                "name": d2["name"],
+                "overlap_pct": int(kpi_overlap * 100),
+                "ontology_overlap_pct": int(ontology_overlap * 100),
+                "ontology_overlap_kpis": ontology_overlap_kpis,
+                "shared_datasources": shared_ds,
+                "user_groups": d2["user_groups"],
+            })
+            pairs_to_persist.append((d1, d2, "functional_overlap", layers, composite))
 
     results = {
         "keep": [],
@@ -724,12 +747,15 @@ def get_recommendations(db: Session = Depends(get_db)):
             discard_reasons.append(d["duplicate_reason"])
             
         if is_discard:
-            # Calculate KPI and table-based uniqueness compared to all other dashboards
             max_overlap = 0.0
             for other in dashboards_data:
                 if other["id"] == d["id"]:
                     continue
-                overlap = calculate_kpi_table_overlap(d, other)
+                if ontology_inventory:
+                    _, composite = get_pair_layers(d, other)
+                    overlap = composite
+                else:
+                    overlap = calculate_kpi_table_overlap(d, other)
                 if overlap > max_overlap:
                     max_overlap = overlap
             discard_uniqueness = max(0.0, 1.0 - max_overlap)
@@ -760,14 +786,11 @@ def get_recommendations(db: Session = Depends(get_db)):
                 common_kpis = list(d["canonical_kpis"] & other_db["canonical_kpis"])
                 if not common_kpis:
                     common_kpis = list(d["base_metrics"] & other_db["base_metrics"])
-                try:
-                    set_a = get_kpi_set(d["id"], db)
-                    set_b = get_kpi_set(other_db["id"], db)
-                    ontology_overlap_kpis = sorted(set_a & set_b)
-                    if ontology_overlap_kpis:
-                        common_kpis = ontology_overlap_kpis
-                except Exception:
-                    pass
+                set_a = kpi_sets.get(str(d["id"]), set())
+                set_b = kpi_sets.get(str(other_db["id"]), set())
+                ontology_overlap_kpis = sorted(set_a & set_b)
+                if ontology_overlap_kpis:
+                    common_kpis = ontology_overlap_kpis
             
             common_tables = best_cand["shared_datasources"]
             merge_reasons = []
@@ -780,18 +803,7 @@ def get_recommendations(db: Session = Depends(get_db)):
                 
             kpi_table_overlap = calculate_kpi_table_overlap(d, other_db) if other_db else 0.0
             if other_db and ontology_inventory:
-                shared_ds = get_shared_datasources(d["workbook_id"], other_db["workbook_id"], wb_ds_map)
-                ds_a = len(wb_ds_map.get(d["workbook_id"], []))
-                ds_b = len(wb_ds_map.get(other_db["workbook_id"], []))
-                layers = {
-                    "data_source": compute_data_source_score(shared_ds, ds_a, ds_b),
-                    "semantic_model": compute_semantic_model_score(set(d["tables"]), set(other_db["tables"])),
-                    "ontology_kpi": compute_ontology_score(d["id"], other_db["id"], db),
-                    "dax_structural": compute_dax_structural_score(calculate_kpi_overlap(d, other_db)),
-                    "visual": compute_visual_score(d["worksheets_config"], other_db["worksheets_config"]),
-                    "filter": compute_filter_score(d["worksheets_config"], other_db["worksheets_config"]),
-                }
-                kpi_table_overlap = compute_composite_score(layers)
+                _, kpi_table_overlap = get_pair_layers(d, other_db)
             results["merge"].append({
                 "id": db_id,
                 "name": name,
@@ -825,7 +837,11 @@ def get_recommendations(db: Session = Depends(get_db)):
         for other in dashboards_data:
             if other["id"] == d["id"]:
                 continue
-            overlap = calculate_kpi_table_overlap(d, other)
+            if ontology_inventory:
+                _, composite = get_pair_layers(d, other)
+                overlap = composite
+            else:
+                overlap = calculate_kpi_table_overlap(d, other)
             if overlap > max_overlap:
                 max_overlap = overlap
         ws_uniqueness = max(0.0, 1.0 - max_overlap)
@@ -843,4 +859,14 @@ def get_recommendations(db: Session = Depends(get_db)):
             "summary": d.get("summary", ""),
             "ontology_inventory": ontology_inventory,
         })
+
+    persist_pairwise_scores(
+        db,
+        pairs_to_persist,
+        wb_ds_map,
+        calculate_kpi_overlap,
+        get_shared_datasources,
+        kpi_sets=kpi_sets,
+    )
+    results["skipped_pairs"] = skipped_pairs
     return results

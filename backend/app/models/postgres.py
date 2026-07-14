@@ -68,6 +68,7 @@ class Worksheet(Base):
     columns = Column(JSON, default=list)
     filters_and_marks = Column(JSON, default=list)
     mark_type = Column(String, nullable=True)
+    measure_bindings = Column(JSON, default=list)
 
     dashboard = relationship("Dashboard", back_populates="worksheets")
     workbook = relationship("Workbook", back_populates="worksheets")

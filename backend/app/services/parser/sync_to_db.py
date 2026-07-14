@@ -48,9 +48,36 @@ def sync_metadata_to_db(metadata: WorkbookMetadata, pg_session: Session):
             conn.execute(text("ALTER TABLE tables ADD COLUMN business_name VARCHAR;"))
         except Exception:
             pass
+        try:
+            conn.execute(text("ALTER TABLE worksheets ADD COLUMN measure_bindings JSON;"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE report_kpi_mappings ADD COLUMN worksheet_id TEXT;"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE report_kpi_mappings ADD COLUMN worksheet_name TEXT;"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE ontology_kpis ADD COLUMN representative_lineage TEXT;"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("DROP INDEX IF EXISTS idx_rkm_report_canonical;"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_rkm_report_ws_kpi "
+                "ON report_kpi_mappings (report_id, worksheet_id, report_kpi_name);"
+            ))
+        except Exception:
+            pass
 
 
-    # Delete existing workbook and its child entities to prevent duplicates and orphans
+    # Delete existing workbook
     existing_wb = pg_session.query(Workbook).filter(Workbook.source_file == metadata.source_file).first()
     if existing_wb:
         from app.models.postgres import GovernanceRisk
@@ -151,7 +178,8 @@ def sync_metadata_to_db(metadata: WorkbookMetadata, pg_session: Session):
                     rows=ws_obj.rows,
                     columns=ws_obj.columns,
                     filters_and_marks=ws_obj.filters_and_marks,
-                    mark_type=ws_obj.mark_type
+                    mark_type=ws_obj.mark_type,
+                    measure_bindings=ws_obj.measure_bindings,
                 ))
             else:
                 pg_session.add(Worksheet(workbook_id=wb_db.id, dashboard_id=dash_db.id, name=ws_name))
@@ -168,7 +196,8 @@ def sync_metadata_to_db(metadata: WorkbookMetadata, pg_session: Session):
                 rows=ws_obj.rows,
                 columns=ws_obj.columns,
                 filters_and_marks=ws_obj.filters_and_marks,
-                mark_type=ws_obj.mark_type
+                mark_type=ws_obj.mark_type,
+                measure_bindings=ws_obj.measure_bindings,
             ))
 
     # Calculated fields — attach to first dashboard as before

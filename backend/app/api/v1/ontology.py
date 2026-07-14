@@ -10,14 +10,9 @@ from app.models.ontology import OntologyKPI, ReportKPIMapping
 from app.models.postgres import Dashboard, Workbook, CalculatedField
 from app.services.ontology.ontology_service import (
     enrich_with_ontology_inventory,
-    load_ontology_kpis,
-    match_kpi_to_ontology,
-    persist_mapping,
     process_dashboard_kpis,
+    update_representative_lineage,
 )
-from app.services.ontology.ontology_cache import OntologyCache
-from app.services.ontology.kpi_extractor import extract_kpis_from_workbook
-from app.core.llm import get_llm
 
 router = APIRouter()
 
@@ -51,6 +46,8 @@ def _mapping_to_dict(row: ReportKPIMapping) -> dict:
     return {
         "mapping_id": row.mapping_id,
         "report_id": row.report_id,
+        "worksheet_id": row.worksheet_id,
+        "worksheet_name": row.worksheet_name,
         "report_kpi_name": row.report_kpi_name,
         "report_kpi_lineage": lineage,
         "report_kpi_aggregation": row.report_kpi_aggregation,
@@ -135,27 +132,56 @@ def get_report_kpi_inventory(report_id: str, db: Session = Depends(get_db)):
 
 @router.post("/reports/{report_id}/extract")
 def trigger_extraction(report_id: str, db: Session = Depends(get_db)):
+    from app.models.metadata import (
+        WorkbookMetadata,
+        WorksheetMetadata,
+        DatasourceMetadata,
+        CalculatedFieldMetadata,
+        DashboardMetadata,
+    )
+
     dashboard = db.query(Dashboard).filter(Dashboard.id == int(report_id)).first()
     if not dashboard:
         raise HTTPException(404, "Dashboard not found")
 
-    calc_fields = db.query(CalculatedField).filter(CalculatedField.dashboard_id == dashboard.id).all()
+    workbook = dashboard.workbook
+    if not workbook:
+        raise HTTPException(404, "Workbook not found")
 
-    class _CF:
-        def __init__(self, name, formula):
-            self.name = name
-            self.caption = name
-            self.formula = formula
+    calc_fields: list[CalculatedFieldMetadata] = []
+    seen_cf: set[str] = set()
+    for dash in workbook.dashboards:
+        for cf in db.query(CalculatedField).filter(CalculatedField.dashboard_id == dash.id).all():
+            key = (cf.name, cf.formula)
+            if key in seen_cf:
+                continue
+            seen_cf.add(key)
+            calc_fields.append(CalculatedFieldMetadata(name=cf.name, caption=cf.name, formula=cf.formula, datatype=cf.datatype))
 
-    class _DS:
-        def __init__(self, fields):
-            self.calculated_fields = fields
+    worksheets = [
+        WorksheetMetadata(
+            name=ws.name,
+            used_calculated_fields=ws.used_calculated_fields or [],
+            rows=ws.rows or [],
+            columns=ws.columns or [],
+            filters_and_marks=ws.filters_and_marks or [],
+            mark_type=ws.mark_type,
+            measure_bindings=ws.measure_bindings or [],
+        )
+        for ws in workbook.worksheets
+    ]
 
-    class _WB:
-        def __init__(self, ds):
-            self.datasources = ds
+    dashboards_meta = [
+        DashboardMetadata(name=d.name, worksheets=[w.name for w in d.worksheets])
+        for d in workbook.dashboards
+    ]
 
-    wb_meta = _WB([_DS([_CF(cf.name, cf.formula) for cf in calc_fields])])
+    wb_meta = WorkbookMetadata(
+        source_file=workbook.source_file,
+        datasources=[DatasourceMetadata(name="default", caption=None, calculated_fields=calc_fields)],
+        worksheets=worksheets,
+        dashboards=dashboards_meta,
+    )
     count = process_dashboard_kpis(db, dashboard.id, wb_meta, {})
     return {"status": "extraction_triggered", "report_id": report_id, "mappings_created": count}
 
@@ -191,6 +217,9 @@ def update_mapping(mapping_id: str, body: dict, db: Session = Depends(get_db)):
     row.resolved_by = body.get("analyst_id", "analyst")
     row.resolved_at = datetime.utcnow()
     db.commit()
+    if action in ("accept", "reassign") and row.canonical_kpi_id:
+        lineage = json.loads(row.report_kpi_lineage) if row.report_kpi_lineage else []
+        update_representative_lineage(db, row.canonical_kpi_id, lineage)
     return _mapping_to_dict(row)
 
 
@@ -209,6 +238,7 @@ def promote_nf_kpi(mapping_id: str, body: dict, db: Session = Depends(get_db)):
         domain=body.get("domain", "General"),
         aliases=json.dumps(body.get("aliases", [row.report_kpi_name])),
         aggregation_type=row.report_kpi_aggregation or "UNKNOWN",
+        representative_lineage=row.report_kpi_lineage,
         created_by=body.get("analyst_id", "analyst"),
     )
     db.add(new_kpi)

@@ -369,6 +369,49 @@ class TableauParser:
                 if rows_el is not None and rows_el.text:
                     ws_meta.rows = extract_fields(rows_el.text)
 
+                def extract_measure_bindings(cols_text: str, rows_text: str) -> list:
+                    bindings = []
+                    seen = set()
+                    agg_pattern = re.compile(
+                        r'(?i)(sum|avg|cnt|count|countd|min|max|attr|median):\s*\[([^\]]+)\]'
+                    )
+                    for raw_text in (cols_text or "", rows_text or ""):
+                        for match in agg_pattern.finditer(raw_text):
+                            agg = match.group(1).upper()
+                            if agg == "COUNT":
+                                agg = "COUNT"
+                            elif agg == "CNT":
+                                agg = "COUNT"
+                            field_ref = match.group(2).strip()
+                            col_part = field_ref
+                            if '].[' in field_ref:
+                                col_part = field_ref.split('].[')[-1].strip(']')
+                            parts = col_part.split(':')
+                            clean_col = parts[1] if len(parts) >= 2 else col_part
+                            table = getattr(self, 'col_to_table_map', {}).get(clean_col)
+                            if not table and '].[' in field_ref:
+                                tbl_part = field_ref.split('].[')[0].strip('[')
+                                if tbl_part and not any(
+                                    x in tbl_part.lower() for x in ['excel-direct', 'federated', 'sqlproxy', 'parameters']
+                                ):
+                                    table = tbl_part
+                            lineage = f"{table}.{clean_col}" if table else clean_col
+                            key = (agg, lineage)
+                            if key in seen:
+                                continue
+                            seen.add(key)
+                            bindings.append({
+                                "field": clean_col,
+                                "aggregation": agg,
+                                "table": table or "",
+                                "lineage": lineage,
+                            })
+                    return bindings
+
+                cols_raw = cols_el.text if cols_el is not None and cols_el.text else ""
+                rows_raw = rows_el.text if rows_el is not None and rows_el.text else ""
+                ws_meta.measure_bindings = extract_measure_bindings(cols_raw, rows_raw)
+
                 if not ws_meta.columns and not ws_meta.rows and all_used_fields:
                     ws_meta.columns = all_used_fields
                 else:

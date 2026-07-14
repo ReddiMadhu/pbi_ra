@@ -31,6 +31,33 @@ async def lifespan(app: FastAPI):
             conn.execute(text("ALTER TABLE dashboards ADD COLUMN is_real_ai INTEGER DEFAULT 0;"))
         except Exception:
             pass
+        try:
+            conn.execute(text("ALTER TABLE worksheets ADD COLUMN measure_bindings JSON;"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE report_kpi_mappings ADD COLUMN worksheet_id TEXT;"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE report_kpi_mappings ADD COLUMN worksheet_name TEXT;"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE ontology_kpis ADD COLUMN representative_lineage TEXT;"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("DROP INDEX IF EXISTS idx_rkm_report_canonical;"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_rkm_report_ws_kpi "
+                "ON report_kpi_mappings (report_id, worksheet_id, report_kpi_name);"
+            ))
+        except Exception:
+            pass
 
     yield
 

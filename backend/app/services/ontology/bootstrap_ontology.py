@@ -6,6 +6,7 @@ from app.db.session import SessionLocal
 from app.models.ontology import OntologyKPI
 from app.models.postgres import Dashboard
 from app.api.v1.kpi_graph import get_kpi_clusters
+from app.services.ontology.embedding_service import embed_ontology_kpis
 
 
 def bootstrap(min_kpis: int = 30) -> int:
@@ -79,6 +80,7 @@ def bootstrap(min_kpis: int = 30) -> int:
             inserted += 1
 
         db.commit()
+        embed_ontology_kpis(db)
         total = db.query(OntologyKPI).count()
         print(f"Bootstrap complete: inserted {inserted}, total {total} KPIs.")
         return total

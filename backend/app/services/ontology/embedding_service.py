@@ -65,3 +65,23 @@ def blob_to_embedding(blob: bytes) -> list[float]:
         return []
     n = len(blob) // 4
     return list(struct.unpack(f"{n}f", blob))
+
+
+def embed_ontology_kpis(db) -> int:
+    """Compute and persist embeddings for all active ontology KPIs."""
+    from app.models.ontology import OntologyKPI
+
+    rows = db.query(OntologyKPI).filter(OntologyKPI.status == "active").all()
+    count = 0
+    for row in rows:
+        aliases = []
+        try:
+            aliases = json.loads(row.aliases) if row.aliases else []
+        except Exception:
+            pass
+        text = f"{row.name} {row.definition} {' '.join(aliases)}"
+        vector = compute_embedding(text)
+        row.embedding = embedding_to_blob(vector)
+        count += 1
+    db.commit()
+    return count

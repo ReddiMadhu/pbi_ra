@@ -32,7 +32,7 @@ class OntologyCache:
             "model_used": row.model_used,
         }
 
-    def set(self, lineage: list[str], aggregation: str, result: dict) -> None:
+    def set(self, lineage: list[str], aggregation: str, result: dict, *, commit: bool = True) -> None:
         key = self._make_key(lineage, aggregation)
         existing = self.db.query(KPIOntologyCache).filter(KPIOntologyCache.cache_key == key).first()
         if existing:
@@ -48,4 +48,8 @@ class OntologyCache:
             computed_at=datetime.utcnow(),
         )
         self.db.add(row)
+        if commit:
+            self.db.commit()
+
+    def flush(self) -> None:
         self.db.commit()

@@ -43,6 +43,7 @@ class WorksheetMetadata(BaseModel):
     columns: List[str] = []
     filters_and_marks: List[str] = []
     mark_type: Optional[str] = None
+    measure_bindings: List[dict] = []  # {field, aggregation, table}
 
 class DashboardMetadata(BaseModel):
     name: str

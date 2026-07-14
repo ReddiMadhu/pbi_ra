@@ -8,7 +8,7 @@ Expected Excel columns (header row required):
   aliases           | optional | comma-separated: "Revenue, Net Sales"
   aggregation_type  | optional | SUM | AVG | COUNT | NONE | UNKNOWN
   valid_dimensions  | optional | comma-separated: "Region, Time"
-  created_by        | optional | defaults to excel_import
+  representative_lineage  | optional | comma-separated or JSON: "Sales.Amount"
   status            | optional | active | stale (default: active)
 
 Usage:
@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal, engine, Base
 from app.models.ontology import OntologyKPI
+from app.services.ontology.embedding_service import embed_ontology_kpis
 import app.models.ontology  # noqa: F401
 
 REQUIRED_COLUMNS = {"name", "definition"}
@@ -37,6 +38,7 @@ OPTIONAL_COLUMNS = {
     "aliases",
     "aggregation_type",
     "valid_dimensions",
+    "representative_lineage",
     "created_by",
     "status",
 }
@@ -95,6 +97,7 @@ def _row_to_kpi(row: pd.Series, created_by_default: str) -> OntologyKPI | None:
         aliases=json.dumps(_split_list(row.get("aliases"))),
         aggregation_type=agg,
         valid_dimensions=json.dumps(_split_list(row.get("valid_dimensions"))),
+        representative_lineage=json.dumps(_split_list(row.get("representative_lineage"))),
         created_by=created_by,
         status=status,
     )
@@ -141,6 +144,7 @@ def import_ontology_excel(
                     existing.aliases = kpi.aliases
                     existing.aggregation_type = kpi.aggregation_type
                     existing.valid_dimensions = kpi.valid_dimensions
+                    existing.representative_lineage = kpi.representative_lineage
                     existing.status = kpi.status
                     updated += 1
                 else:
@@ -153,6 +157,7 @@ def import_ontology_excel(
 
         if not dry_run:
             db.commit()
+            embed_ontology_kpis(db)
     except Exception as exc:
         db.rollback()
         errors.append(str(exc))

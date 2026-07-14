@@ -1,7 +1,6 @@
 import hashlib
 import json
 import re
-import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -19,133 +18,180 @@ class ExtractedKPI:
     aggregation_type: str = "UNKNOWN"
     definition: str = ""
     extraction_method: str = "unknown"
+    worksheet_id: str | None = None
+    worksheet_name: str | None = None
 
 
-def _lineage_hash(lineage: list[str], aggregation: str) -> str:
-    payload = json.dumps(sorted(lineage), sort_keys=True) + (aggregation or "").upper()
-    return hashlib.sha256(payload.encode()).hexdigest()
+def _lineage_key(lineage: list[str], aggregation: str) -> str:
+    return json.dumps(sorted(lineage), sort_keys=True) + (aggregation or "").upper()
 
 
-def _dedupe_kpis(kpis: list[ExtractedKPI]) -> list[ExtractedKPI]:
-    seen: set[str] = set()
-    out: list[ExtractedKPI] = []
-    for kpi in kpis:
-        key = _lineage_hash(kpi.resolved_lineage, kpi.aggregation_type) + kpi.name.lower()
-        if key in seen:
+def _normalize_agg(agg: str) -> str:
+    agg = (agg or "UNKNOWN").upper()
+    if agg == "AVERAGE":
+        return "AVG"
+    if agg in ("CNT", "COUNTD"):
+        return "COUNT"
+    if agg == "MEDIAN":
+        return "MEDIAN"
+    return agg
+
+
+def _build_calc_field_map(workbook_metadata: Any) -> dict[str, dict]:
+    """Map calc field name -> {formula, lineage, aggregation}."""
+    col_to_table_map: dict[str, str] = getattr(workbook_metadata, "_col_to_table_map", {}) or {}
+    out: dict[str, dict] = {}
+    for ds in getattr(workbook_metadata, "datasources", []) or []:
+        for cf in getattr(ds, "calculated_fields", []) or []:
+            name = getattr(cf, "caption", None) or getattr(cf, "name", "")
+            if not name:
+                continue
+            formula = getattr(cf, "formula", "") or ""
+            lineage: list[str] = []
+            for ref in FIELD_REF.findall(formula):
+                ref = ref.strip()
+                table = col_to_table_map.get(ref) or col_to_table_map.get(ref.lower())
+                if table:
+                    lineage.append(f"{table}.{ref}")
+                else:
+                    lineage.append(ref)
+            agg = "NONE"
+            m = AGG_PATTERN.search(formula)
+            if m:
+                agg = _normalize_agg(m.group(1))
+            out[name.lower()] = {
+                "name": name,
+                "formula": formula,
+                "lineage": sorted(set(lineage)),
+                "aggregation": agg,
+            }
+    return out
+
+
+def _extract_named_on_worksheet(
+    ws: Any,
+    calc_map: dict[str, dict],
+    worksheet_id: str | None,
+    worksheet_name: str,
+) -> list[ExtractedKPI]:
+    results: list[ExtractedKPI] = []
+    for cf_name in getattr(ws, "used_calculated_fields", []) or []:
+        meta = calc_map.get(str(cf_name).lower())
+        if not meta:
+            results.append(
+                ExtractedKPI(
+                    name=cf_name,
+                    resolved_lineage=[],
+                    aggregation_type="UNKNOWN",
+                    definition="",
+                    extraction_method="named_measure",
+                    worksheet_id=worksheet_id,
+                    worksheet_name=worksheet_name,
+                )
+            )
             continue
-        seen.add(key)
+        results.append(
+            ExtractedKPI(
+                name=meta["name"],
+                resolved_lineage=meta["lineage"],
+                aggregation_type=meta["aggregation"],
+                definition=meta["formula"],
+                extraction_method="named_measure",
+                worksheet_id=worksheet_id,
+                worksheet_name=worksheet_name,
+            )
+        )
+    return results
+
+
+def _extract_visual_bindings(ws: Any, worksheet_id: str | None, worksheet_name: str) -> list[ExtractedKPI]:
+    results: list[ExtractedKPI] = []
+    for binding in getattr(ws, "measure_bindings", []) or []:
+        if isinstance(binding, dict):
+            lineage = binding.get("lineage") or binding.get("field", "")
+            agg = _normalize_agg(binding.get("aggregation", "UNKNOWN"))
+            field_name = binding.get("field", lineage)
+            if isinstance(lineage, list):
+                lineage_list = lineage
+            elif "." in str(lineage):
+                lineage_list = [str(lineage)]
+            else:
+                table = binding.get("table", "")
+                lineage_list = [f"{table}.{lineage}" if table else str(lineage)]
+            name = f"{agg} of {lineage_list[0]}" if lineage_list else f"{agg} of {field_name}"
+            results.append(
+                ExtractedKPI(
+                    name=name,
+                    resolved_lineage=lineage_list,
+                    aggregation_type=agg,
+                    definition=name,
+                    extraction_method="visual_binding",
+                    worksheet_id=worksheet_id,
+                    worksheet_name=worksheet_name,
+                )
+            )
+    return results
+
+
+def _dedupe_worksheet_kpis(kpis: list[ExtractedKPI]) -> list[ExtractedKPI]:
+    """Named measures win over visual bindings with same lineage+agg on same worksheet."""
+    named_keys: set[str] = set()
+    for kpi in kpis:
+        if kpi.extraction_method == "named_measure":
+            named_keys.add(_lineage_key(kpi.resolved_lineage, kpi.aggregation_type))
+
+    out: list[ExtractedKPI] = []
+    seen_names: set[str] = set()
+    for kpi in kpis:
+        if kpi.extraction_method == "visual_binding":
+            key = _lineage_key(kpi.resolved_lineage, kpi.aggregation_type)
+            if key in named_keys:
+                continue
+        dedupe_key = (kpi.worksheet_id or "", kpi.name.lower())
+        if dedupe_key in seen_names:
+            continue
+        seen_names.add(dedupe_key)
         out.append(kpi)
     return out
 
 
-def _extract_via_regex(calculated_fields: list[dict]) -> list[ExtractedKPI]:
-    results: list[ExtractedKPI] = []
-    for cf in calculated_fields:
-        formula = cf.get("formula") or ""
-        name = cf.get("name") or cf.get("caption") or ""
-        if not name:
+def extract_kpis_per_worksheet(
+    workbook_metadata: Any,
+    col_to_table_map: dict[str, str] | None = None,
+    worksheet_db_rows: list[Any] | None = None,
+    llm: Any = None,
+) -> dict[str, list[ExtractedKPI]]:
+    """
+    Extract KPIs per worksheet (Source A: named measures, Source B: visual bindings).
+    Returns dict keyed by worksheet name.
+    """
+    workbook_metadata._col_to_table_map = col_to_table_map or {}
+    calc_map = _build_calc_field_map(workbook_metadata)
+
+    ws_db_by_name: dict[str, Any] = {}
+    if worksheet_db_rows:
+        for ws_row in worksheet_db_rows:
+            ws_db_by_name[ws_row.name] = ws_row
+
+    dashboard_ws_names: set[str] = set()
+    for db in getattr(workbook_metadata, "dashboards", []) or []:
+        for ws_name in getattr(db, "worksheets", []) or []:
+            dashboard_ws_names.add(ws_name)
+
+    result: dict[str, list[ExtractedKPI]] = {}
+    for ws in getattr(workbook_metadata, "worksheets", []) or []:
+        if ws.name not in dashboard_ws_names and dashboard_ws_names:
             continue
-        agg = "NONE"
-        lineage: list[str] = []
-        match = AGG_PATTERN.search(formula)
-        if match:
-            agg = match.group(1).upper()
-            if agg == "AVERAGE":
-                agg = "AVG"
-            refs = FIELD_REF.findall(match.group(2))
-            lineage = [r.strip() for r in refs if r.strip()]
-        results.append(
-            ExtractedKPI(
-                name=name,
-                resolved_lineage=lineage,
-                aggregation_type=agg,
-                definition=formula,
-                extraction_method="regex",
-            )
-        )
-    return results
+        ws_row = ws_db_by_name.get(ws.name)
+        worksheet_id = str(ws_row.id) if ws_row else None
+        worksheet_name = ws.name
 
+        kpis: list[ExtractedKPI] = []
+        kpis.extend(_extract_named_on_worksheet(ws, calc_map, worksheet_id, worksheet_name))
+        kpis.extend(_extract_visual_bindings(ws, worksheet_id, worksheet_name))
+        result[worksheet_name] = _dedupe_worksheet_kpis(kpis)
 
-def _extract_via_parser_metadata(
-    calculated_fields: list[dict], col_to_table_map: dict[str, str]
-) -> list[ExtractedKPI]:
-    results: list[ExtractedKPI] = []
-    for cf in calculated_fields:
-        formula = cf.get("formula") or ""
-        name = cf.get("name") or cf.get("caption") or ""
-        if not name:
-            continue
-        lineage: list[str] = []
-        for ref in FIELD_REF.findall(formula):
-            ref = ref.strip()
-            table = col_to_table_map.get(ref) or col_to_table_map.get(ref.lower())
-            if table:
-                lineage.append(f"{table}.{ref}")
-            else:
-                lineage.append(ref)
-        agg = "NONE"
-        m = AGG_PATTERN.search(formula)
-        if m:
-            agg = m.group(1).upper()
-            if agg == "AVERAGE":
-                agg = "AVG"
-        results.append(
-            ExtractedKPI(
-                name=name,
-                resolved_lineage=sorted(set(lineage)),
-                aggregation_type=agg,
-                definition=formula,
-                extraction_method="parser",
-            )
-        )
-    return results
-
-
-def _extract_via_llm(calculated_fields: list[dict], llm: Any) -> list[ExtractedKPI]:
-    if not llm or not calculated_fields:
-        return []
-    names = [cf.get("name") or cf.get("caption") for cf in calculated_fields if cf.get("name") or cf.get("caption")]
-    if not names:
-        return []
-    prompt = f"""Extract KPI metadata from these Tableau calculated fields.
-Return JSON array with objects: name, aggregation_type (SUM|AVG|COUNT|NONE), lineage (array of field refs).
-Fields: {json.dumps(calculated_fields[:30])}
-Return ONLY valid JSON array."""
-    try:
-        res = llm.invoke(prompt)
-        content = (res.content or "").strip()
-        if content.startswith("```"):
-            content = re.sub(r"^```(?:json)?", "", content).strip()
-            content = content.rstrip("`").strip()
-        parsed = json.loads(content)
-        if not isinstance(parsed, list):
-            return []
-        out: list[ExtractedKPI] = []
-        for item in parsed:
-            if not isinstance(item, dict) or not item.get("name"):
-                continue
-            out.append(
-                ExtractedKPI(
-                    name=item["name"],
-                    resolved_lineage=item.get("lineage") or [],
-                    aggregation_type=(item.get("aggregation_type") or "UNKNOWN").upper(),
-                    definition=item.get("definition", ""),
-                    extraction_method="llm",
-                )
-            )
-        return out
-    except Exception:
-        return [
-            ExtractedKPI(
-                name=cf.get("name") or cf.get("caption") or "",
-                resolved_lineage=[],
-                aggregation_type="UNKNOWN",
-                definition=cf.get("formula", ""),
-                extraction_method="llm_fallback",
-            )
-            for cf in calculated_fields
-            if cf.get("name") or cf.get("caption")
-        ]
+    return result
 
 
 def extract_kpis_from_workbook(
@@ -153,53 +199,9 @@ def extract_kpis_from_workbook(
     col_to_table_map: dict[str, str] | None = None,
     llm: Any = None,
 ) -> list[ExtractedKPI]:
-    """3-tier KPI extraction: regex → parser lineage → LLM fallback."""
-    col_to_table_map = col_to_table_map or {}
-    calculated_fields: list[dict] = []
-    for ds in getattr(workbook_metadata, "datasources", []) or []:
-        for cf in getattr(ds, "calculated_fields", []) or []:
-            calculated_fields.append(
-                {
-                    "name": getattr(cf, "caption", None) or getattr(cf, "name", ""),
-                    "caption": getattr(cf, "caption", None),
-                    "formula": getattr(cf, "formula", "") or "",
-                }
-            )
-
-    tier1 = _extract_via_regex(calculated_fields)
-    tier2 = _extract_via_parser_metadata(calculated_fields, col_to_table_map)
-
-    by_name: dict[str, ExtractedKPI] = {}
-    for kpi in tier1:
-        by_name[kpi.name.lower()] = kpi
-    for kpi in tier2:
-        existing = by_name.get(kpi.name.lower())
-        if existing:
-            has_resolved = any('.' in l for l in kpi.resolved_lineage)
-            existing_has_resolved = any('.' in l for l in existing.resolved_lineage)
-            if has_resolved or not existing_has_resolved:
-                by_name[kpi.name.lower()] = kpi
-        else:
-            by_name[kpi.name.lower()] = kpi
-
-    missing = [
-        cf
-        for cf in calculated_fields
-        if (cf.get("name") or "").lower() not in by_name
-    ]
-    if missing and llm:
-        for kpi in _extract_via_llm(missing, llm):
-            by_name[kpi.name.lower()] = kpi
-    elif missing:
-        for cf in missing:
-            name = cf.get("name") or ""
-            if name:
-                by_name[name.lower()] = ExtractedKPI(
-                    name=name,
-                    resolved_lineage=[],
-                    aggregation_type="UNKNOWN",
-                    definition=cf.get("formula", ""),
-                    extraction_method="name_only",
-                )
-
-    return _dedupe_kpis(list(by_name.values()))
+    """Legacy flat list — all per-worksheet KPIs flattened."""
+    per_ws = extract_kpis_per_worksheet(workbook_metadata, col_to_table_map, llm=llm)
+    flat: list[ExtractedKPI] = []
+    for kpis in per_ws.values():
+        flat.extend(kpis)
+    return flat
