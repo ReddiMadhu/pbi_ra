@@ -23,6 +23,7 @@ interface Taxonomy {
   sectors: string[];
   active_sectors: string[];
   subdomains_by_sector: Record<string, string[]>;
+  subdomain_display_labels?: Record<string, string>;
 }
 
 type Tab = 'bank' | 'pending_review' | 'not_found';
@@ -176,7 +177,11 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
               onChange={(e) => setSubdomainFilter(e.target.value)}
             >
               {subdomains.map((d) => (
-                <option key={d} value={d}>{d === 'all' ? 'All subdomains' : d}</option>
+                <option key={d} value={d}>
+                  {d === 'all'
+                    ? 'All subdomains'
+                    : (taxonomy?.subdomain_display_labels?.[d] ?? d)}
+                </option>
               ))}
             </select>
           </div>
@@ -203,7 +208,9 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
               >
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className="font-semibold">{kpi.name}</span>
-                  <Badge variant="outline" className="text-[10px]">{kpi.sector}/{kpi.subdomain}</Badge>
+                  <Badge variant="outline" className="text-[10px]">
+                    {kpi.sector}/{taxonomy?.subdomain_display_labels?.[kpi.subdomain] ?? kpi.subdomain}
+                  </Badge>
                   {kpi.is_active_sector === false && (
                     <Badge variant="outline" className="text-[10px] text-muted-foreground">inactive sector</Badge>
                   )}

@@ -248,7 +248,7 @@ def test_cache_invalidation():
 def test_cache_key_includes_scope():
     db = MagicMock()
     cache = OntologyCache(db)
-    k1 = cache._make_key(["Sales.Amount"], "SUM", "insurance", "claims")
+    k1 = cache._make_key(["Sales.Amount"], "SUM", "insurance", "claims_litigation")
     k2 = cache._make_key(["Sales.Amount"], "SUM", "insurance", "underwriting")
     k3 = cache._make_key(["Sales.Amount"], "SUM", "banking", "retail")
     assert k1 != k2
@@ -265,7 +265,7 @@ def test_scoped_match_subdomain_hit():
         MockCache(),
         llm=None,
         sector="insurance",
-        subdomain="claims",
+        subdomain="claims_litigation",
     )
     assert result["matched_kpi_id"] == "c1"
 
@@ -280,7 +280,7 @@ def test_scoped_fallback_to_sector():
         MockCache(),
         llm=None,
         sector="insurance",
-        subdomain="claims",
+        subdomain="claims_litigation",
     )
     assert result["matched_kpi_id"] == "s1"
     assert "sector fallback" in (result.get("confidence_rationale") or "")
@@ -295,18 +295,63 @@ def test_no_cross_sector_in_scoped_slices():
         MockCache(),
         llm=None,
         sector="insurance",
-        subdomain="claims",
+        subdomain="claims_litigation",
     )
     assert result["mapping_status"] == "not_found"
 
 
 def test_classification_taxonomy_normalize():
-    sector, subdomain = normalize_scope("insurance", "claims", legacy_domain="Claims & Risk")
+    sector, subdomain = normalize_scope("insurance", "claims_litigation", legacy_domain="Claims & Risk")
     assert sector == "insurance"
-    assert subdomain == "claims"
+    assert subdomain == "claims_litigation"
     sector2, subdomain2 = suggest_from_legacy_domain("New Business Ops")
     assert sector2 == "insurance"
     assert subdomain2 == "underwriting"
+
+
+def test_applicability_sheet_scope_mapping():
+    from app.services.ontology.taxonomy import suggest_scope_from_applicability
+
+    assert suggest_scope_from_applicability("Claims_Litigation") == ("insurance", "claims_litigation")
+    assert suggest_scope_from_applicability("Actuarial & Risk") == ("insurance", "actuarial_and_risk")
+    assert suggest_scope_from_applicability("Acturial & Risk") == ("insurance", "actuarial_and_risk")
+    assert suggest_scope_from_applicability("Marketing") == ("insurance", "marketing")
+    assert suggest_scope_from_applicability("Distribution") == ("insurance", "distribution")
+    assert suggest_scope_from_applicability("Service & Operations") == ("insurance", "service_and_operations")
+    assert suggest_scope_from_applicability("underwriting") == ("insurance", "underwriting")
+    # Multiple sheets → first listed wins (not collapsed to a fake shared bucket)
+    assert suggest_scope_from_applicability("Marketing, Claims_Litigation") == ("insurance", "marketing")
+
+
+def test_bank_format_header_resolution():
+    from scripts.seed_ontology_from_excel import resolve_column_map, COLUMN_MAP, row_to_kpi, _norm_header
+    import pandas as pd
+
+    assert _norm_header("Measurement(KPI)") == "measurement kpi"
+    headers = [
+        "Measurement(KPI)",
+        "Definition",
+        "Fields required to create the Metric",
+        "Applicablity with Sheet Names",
+    ]
+    resolved = resolve_column_map(headers, COLUMN_MAP)
+    assert resolved["name"] == "Measurement(KPI)"
+    assert resolved["definition"] == "Definition"
+    assert resolved["fields_required"] == "Fields required to create the Metric"
+    assert resolved["applicability"] == "Applicablity with Sheet Names"
+
+    row = pd.Series({
+        "Measurement(KPI)": "Loss Ratio",
+        "Definition": "Claims / Premium",
+        "Fields required to create the Metric": "Paid Amount, Earned Premium, State",
+        "Applicablity with Sheet Names": "Claims_Litigation",
+    })
+    kpi = row_to_kpi(row, resolved, {"sector": "insurance", "subdomain": "service_and_operations", "aggregation_type": "UNKNOWN", "status": "active", "created_by": "test"})
+    assert kpi is not None
+    assert kpi.name == "Loss Ratio"
+    assert kpi.subdomain == "claims_litigation"
+    assert "Paid Amount" in json.loads(kpi.representative_lineage)
+    assert "Claims_Litigation" in json.loads(kpi.aliases)
 
 
 def test_countd_not_collapsed_to_count():

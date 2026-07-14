@@ -20,7 +20,7 @@ class ClassificationResult(BaseModel):
     worksheet_and_field_analysis: str = Field(description="A detailed step-by-step analysis of the worksheets, the charts within them, and their underlying fields. Explain what they measure and what insights they provide. You must generate this analysis BEFORE determining the domain.")
     domain: str = Field(description="The business domain of the dashboard. Must be one of: 'Claims & Risk', 'Customer Service', 'New Business Ops', 'Sales & pipeline', 'Product Level Performance'. If none of these fit, invent a highly specific custom domain name based on the dashboard context. Base this decision on your worksheet_and_field_analysis.")
     ontology_sector: str = Field(description="Ontology sector for KPI matching. Must be exactly one of: 'insurance', 'banking', 'finance', 'operational'. For insurance dashboards use 'insurance'.")
-    ontology_subdomain: str = Field(description="Ontology subdomain within the sector. For insurance use one of: 'actuarial', 'claims', 'underwriting', 'shared'. actuarial=reserving/pricing/models; claims=loss ratio/severity/fraud; underwriting=IGO/NIGO/submission quality; shared=cross-cutting customer service metrics.")
+    ontology_subdomain: str = Field(description="Ontology subdomain within the sector. For insurance use exactly one of: 'marketing', 'distribution', 'actuarial_and_risk', 'underwriting', 'claims_litigation', 'service_and_operations'. marketing=sales funnel/campaign; distribution=channel/agency; actuarial_and_risk=reserving/pricing/product portfolio; underwriting=IGO/NIGO/submission quality; claims_litigation=loss ratio/severity/fraud/litigation; service_and_operations=customer service/TAT/SLA/ops.")
     line_of_business: str = Field(description="The line of business the dashboard belongs to. Must be exactly one of: 'L&A', 'P&C', 'Worker compensation', 'reisurance', 'Auto insurance', 'health'. Choose the most appropriate based on analysis.")
     insight_level: str = Field(description="The primary level of granularity for the dashboard. MUST be exactly one of: 'Overall Level', 'Agent Level', 'State Level', 'Region Level', 'Product Level'. Use these strict rules: Choose 'Agent Level' ONLY if every KPI is related to agent-level analysis. Choose 'State Level' ONLY if every KPI is related to state-level analysis. Choose 'Region Level' ONLY if every KPI is related to region-level analysis. Choose 'Product Level' ONLY if every KPI is related to product-level analysis. Choose 'Overall Level' if the dashboard contains a mix of different granularities (e.g., some by state, some by region, some by agent).")
     complexity: float = Field(description="A complexity score from 1.0 to 10.0 based on the number of worksheets, datasources, and calculated fields.")
@@ -123,11 +123,13 @@ If none of these categories accurately describe the dashboard based on these str
 ONTOLOGY SCOPING (required for KPI bank matching):
 After domain classification, also set ontology_sector and ontology_subdomain for hierarchical ontology matching.
 - ontology_sector: one of insurance, banking, finance, operational (use insurance for insurance/reinsurance dashboards)
-- ontology_subdomain for insurance:
-  * claims — loss ratio, claim severity, fraud, incident patterns, pure claims investigation
-  * underwriting — IGO/NIGO, proposal quality, submission quality, new business ops, sales pipeline
-  * actuarial — reserving, pricing models, product-level portfolio performance
-  * shared — customer service, case/TAT/SLA metrics, cross-cutting metrics
+- ontology_subdomain for insurance (use these exact keys):
+  * marketing — sales funnel, campaign, lead conversion, premium pipeline
+  * distribution — channel, agency, broker, distribution network
+  * actuarial_and_risk — reserving, pricing models, product-level portfolio / risk performance
+  * underwriting — IGO/NIGO, proposal quality, submission quality, new business ops
+  * claims_litigation — loss ratio, claim severity, fraud, litigation, pure claims investigation
+  * service_and_operations — customer service, case/TAT/SLA metrics, operations
 
 CRITICAL INSTRUCTION:
 Do not write a generic summary. You MUST first thoroughly analyze the Worksheets, the name of the worksheets, the Worksheet Charts, Variables, and Calculated Field Formulas. In your `worksheet_and_field_analysis`, explain step-by-step what these specific charts (e.g., bar charts, line graphs) and variables (e.g., loss_ratio, premium_amount) are measuring and what insights they provide. 

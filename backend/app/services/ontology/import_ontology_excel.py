@@ -1,17 +1,16 @@
 """
 Import canonical KPIs from an Excel file into ontology_kpis (SQLite).
 
-Expected Excel columns (header row required):
-  name              | required | unique canonical KPI name
-  definition        | required | business definition
-  sector            | required | insurance | banking | finance | operational
-  subdomain         | required | e.g. claims, actuarial, underwriting (per sector)
-  domain            | optional | legacy display label; defaults to sector/subdomain
-  aliases           | optional | comma-separated: "Revenue, Net Sales"
-  aggregation_type  | optional | SUM | AVG | COUNT | NONE | UNKNOWN
-  valid_dimensions  | optional | comma-separated: "Region, Time"
-  representative_lineage  | optional | comma-separated or JSON: "Sales.Amount"
-  status            | optional | active | stale (default: active)
+Expected Excel columns (header row required) — bank format:
+  Measurement(KPI)                         | required | unique canonical KPI name
+  Definition                               | required | business definition
+  Fields required to create the Metric     | optional | comma-separated lineage fields
+  Applicability with Sheet Names           | optional | e.g. Marketing, Claims_Litigation
+                                           |         | → aliases + sector/subdomain
+
+Also accepts legacy / alternate headers:
+  name, definition, sector, subdomain, domain, aliases, aggregation_type,
+  valid_dimensions, representative_lineage, status
 
 Usage:
   py -3 -m app.services.ontology.import_ontology_excel path/to/kpi_bank.xlsx
@@ -22,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import uuid
 from pathlib import Path
@@ -32,19 +32,54 @@ from sqlalchemy.orm import Session
 from app.db.session import SessionLocal, engine, Base
 from app.models.ontology import OntologyKPI
 from app.services.ontology.embedding_service import embed_ontology_kpis
-from app.services.ontology.taxonomy import normalize_scope, validate_sector, validate_subdomain
+from app.services.ontology.taxonomy import (
+    normalize_scope,
+    suggest_scope_from_applicability,
+    validate_sector,
+    validate_subdomain,
+)
 import app.models.ontology  # noqa: F401
 
-REQUIRED_COLUMNS = {"name", "definition", "sector", "subdomain"}
-OPTIONAL_COLUMNS = {
-    "domain",
-    "aliases",
-    "aggregation_type",
-    "valid_dimensions",
-    "representative_lineage",
-    "created_by",
-    "status",
+# Logical field → Excel header aliases (first match wins after normalization)
+COLUMN_ALIASES: dict[str, list[str]] = {
+    "name": [
+        "Measurement(KPI)",
+        "Measurement (KPI)",
+        "Measurement",
+        "name",
+        "kpi",
+        "kpi_name",
+        "kpi name",
+        "measure",
+        "metric",
+    ],
+    "definition": ["Definition", "definition", "description", "business definition"],
+    "fields_required": [
+        "Fields required to create the Metric",
+        "Fields Required to Create the Metric",
+        "Fields required to create Metric",
+        "Felids required to create the Metric",
+        "fields_required",
+        "required fields",
+    ],
+    "applicability": [
+        "Applicability with Sheet Names",
+        "Applicablity with Sheet Names",
+        "Applicability",
+        "applicable_sheets",
+    ],
+    "sector": ["sector"],
+    "subdomain": ["subdomain", "sub domain"],
+    "domain": ["domain"],
+    "aliases": ["aliases", "alias"],
+    "aggregation_type": ["aggregation_type", "aggregation", "agg"],
+    "valid_dimensions": ["valid_dimensions", "dimensions"],
+    "representative_lineage": ["representative_lineage", "lineage"],
+    "created_by": ["created_by"],
+    "status": ["status"],
 }
+
+REQUIRED_LOGICAL = {"name", "definition"}
 VALID_AGGREGATIONS = {
     "SUM", "AVG", "AVERAGE", "COUNT", "COUNTD", "MIN", "MAX", "MEDIAN",
     "ATTR", "NONE", "UNKNOWN", "PCT", "STDEV", "VAR", "SUM_SQR",
@@ -52,17 +87,42 @@ VALID_AGGREGATIONS = {
 VALID_STATUS = {"active", "stale"}
 
 
-def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    df.columns = [str(c).strip().lower().replace(" ", "_") for c in df.columns]
-    return df
+def _norm_header(h: str) -> str:
+    text = str(h).strip().lower().replace("_", " ")
+    text = re.sub(r"[()\[\]{}]", " ", text)
+    text = re.sub(r"[^\w\s&+-]", " ", text)
+    return " ".join(text.split())
+
+
+def _resolve_headers(df: pd.DataFrame) -> dict[str, str | None]:
+    index = {_norm_header(c): c for c in df.columns}
+    resolved: dict[str, str | None] = {}
+    for field, aliases in COLUMN_ALIASES.items():
+        hit = None
+        for alias in aliases:
+            key = _norm_header(alias)
+            if key in index:
+                hit = index[key]
+                break
+        resolved[field] = hit
+    return resolved
+
+
+def _cell(row: pd.Series, col: str | None) -> str:
+    if not col or col not in row.index:
+        return ""
+    val = row.get(col)
+    if val is None or (isinstance(val, float) and pd.isna(val)):
+        return ""
+    text = str(val).strip()
+    return "" if text.lower() == "nan" else text
 
 
 def _split_list(value) -> list[str]:
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return []
     text = str(value).strip()
-    if not text:
+    if not text or text.lower() == "nan":
         return []
     if text.startswith("["):
         try:
@@ -70,43 +130,59 @@ def _split_list(value) -> list[str]:
             return [str(x).strip() for x in parsed if str(x).strip()]
         except json.JSONDecodeError:
             pass
-    return [part.strip() for part in text.split(",") if part.strip()]
+    for sep in (",", "|", ";"):
+        if sep in text:
+            return [part.strip() for part in text.split(sep) if part.strip()]
+    return [text]
 
 
-def _row_to_kpi(row: pd.Series, created_by_default: str) -> OntologyKPI | None:
-    name = str(row.get("name", "")).strip()
-    definition = str(row.get("definition", "")).strip()
-    if not name or not definition or name.lower() == "nan" or definition.lower() == "nan":
+def _row_to_kpi(row: pd.Series, resolved: dict[str, str | None], created_by_default: str) -> OntologyKPI | None:
+    name = _cell(row, resolved.get("name"))
+    definition = _cell(row, resolved.get("definition"))
+    if not name or not definition:
         return None
 
-    domain = str(row.get("domain", "")).strip()
-    if domain.lower() == "nan" or not domain:
-        domain = ""
+    domain = _cell(row, resolved.get("domain"))
+    applicability = _cell(row, resolved.get("applicability"))
+    sector_raw = _cell(row, resolved.get("sector"))
+    subdomain_raw = _cell(row, resolved.get("subdomain"))
 
-    sector_raw = row.get("sector")
-    subdomain_raw = row.get("subdomain")
-    sector = validate_sector(str(sector_raw).strip() if sector_raw is not None and str(sector_raw).lower() != "nan" else None)
-    subdomain = validate_subdomain(sector, str(subdomain_raw).strip() if subdomain_raw is not None and str(subdomain_raw).lower() != "nan" else None) if sector else None
+    if not sector_raw and not subdomain_raw and applicability:
+        sector_raw, subdomain_raw = suggest_scope_from_applicability(applicability)
+        if not domain:
+            domain = applicability
+
+    sector = validate_sector(sector_raw or None)
+    subdomain = validate_subdomain(sector, subdomain_raw or None) if sector else None
     if not sector or not subdomain:
         sector, subdomain = normalize_scope(
-            str(sector_raw) if sector_raw is not None else None,
-            str(subdomain_raw) if subdomain_raw is not None else None,
+            sector_raw or None,
+            subdomain_raw or None,
             legacy_domain=domain or None,
         )
     if not domain:
-        domain = f"{sector}/{subdomain}"
+        domain = applicability or f"{sector}/{subdomain}"
 
-    agg = str(row.get("aggregation_type", "UNKNOWN")).strip().upper()
+    agg = (_cell(row, resolved.get("aggregation_type")) or "UNKNOWN").upper()
     if agg == "AVERAGE":
         agg = "AVG"
     if agg not in VALID_AGGREGATIONS:
         agg = "UNKNOWN"
 
-    status = str(row.get("status", "active")).strip().lower()
+    status = (_cell(row, resolved.get("status")) or "active").lower()
     if status not in VALID_STATUS:
         status = "active"
 
-    created_by = str(row.get("created_by", created_by_default)).strip() or created_by_default
+    created_by = _cell(row, resolved.get("created_by")) or created_by_default
+
+    aliases = _split_list(_cell(row, resolved.get("aliases")))
+    for sheet in _split_list(applicability):
+        if sheet and sheet not in aliases and sheet.lower() != name.lower():
+            aliases.append(sheet)
+
+    fields_required = _cell(row, resolved.get("fields_required"))
+    lineage_raw = _cell(row, resolved.get("representative_lineage"))
+    lineage = _split_list(lineage_raw) if lineage_raw else _split_list(fields_required)
 
     return OntologyKPI(
         kpi_id=str(uuid.uuid4()),
@@ -115,10 +191,10 @@ def _row_to_kpi(row: pd.Series, created_by_default: str) -> OntologyKPI | None:
         domain=domain,
         sector=sector,
         subdomain=subdomain,
-        aliases=json.dumps(_split_list(row.get("aliases"))),
+        aliases=json.dumps(aliases),
         aggregation_type=agg,
-        valid_dimensions=json.dumps(_split_list(row.get("valid_dimensions"))),
-        representative_lineage=json.dumps(_split_list(row.get("representative_lineage"))),
+        valid_dimensions=json.dumps(_split_list(_cell(row, resolved.get("valid_dimensions")))),
+        representative_lineage=json.dumps(lineage),
         created_by=created_by,
         status=status,
     )
@@ -138,11 +214,15 @@ def import_ontology_excel(
     Base.metadata.create_all(bind=engine)
 
     df = pd.read_excel(path, sheet_name=sheet_name)
-    df = _normalize_columns(df)
+    resolved = _resolve_headers(df)
 
-    missing = REQUIRED_COLUMNS - set(df.columns)
+    missing = [f for f in REQUIRED_LOGICAL if not resolved.get(f)]
     if missing:
-        raise ValueError(f"Missing required columns: {', '.join(sorted(missing))}")
+        raise ValueError(
+            f"Missing required columns for: {', '.join(missing)}. "
+            f"Need Measurement(KPI)/name and Definition. "
+            f"Detected headers: {list(df.columns)}. Resolved: {resolved}"
+        )
 
     db: Session = SessionLocal()
     inserted = 0
@@ -151,8 +231,8 @@ def import_ontology_excel(
     errors: list[str] = []
 
     try:
-        for idx, row in df.iterrows():
-            kpi = _row_to_kpi(row, created_by_default)
+        for _, row in df.iterrows():
+            kpi = _row_to_kpi(row, resolved, created_by_default)
             if not kpi:
                 skipped += 1
                 continue
@@ -190,6 +270,7 @@ def import_ontology_excel(
 
     return {
         "file": str(path),
+        "resolved_map": resolved,
         "rows_read": len(df),
         "inserted": inserted,
         "updated": updated,

@@ -1,42 +1,30 @@
 """
 Seed the ontology bank (ontology_kpis) from your own Excel files.
 
-Your Excel headers are often inconsistent. Edit COLUMN_MAP below so each
-ontology field points at the header name(s) that appear in YOUR file.
-
-Typical use cases:
-  A) KPI list          → name + definition (+ sector/subdomain)
-  B) Table/column catalog → table_name + column_name → lineage "Table.Column"
-     and kpi name from column / worksheet variable
+Supported bank format (primary):
+  Measurement(KPI)                      → name
+  Definition                            → definition
+  Fields required to create the Metric  → representative_lineage (comma-separated)
+  Applicability with Sheet Names        → aliases + sector/subdomain
+      e.g. Marketing, Distribution, Actuarial & Risk,
+           Claims_Litigation, Service & Operations
 
 Usage (from backend/):
-  py -3 scripts/seed_ontology_from_excel.py path/to/file.xlsx
-  py -3 scripts/seed_ontology_from_excel.py path/to/file.xlsx --sheet "Sheet1"
-  py -3 scripts/seed_ontology_from_excel.py path/to/file.xlsx --dry-run
-  py -3 scripts/seed_ontology_from_excel.py path/to/file.xlsx --update-existing
-  py -3 scripts/seed_ontology_from_excel.py path/to/file.xlsx --inspect
-      # print detected headers + suggested mapping (no DB write)
-
-Examples of COLUMN_MAP for messy files:
-  # File has "KPI Name", "Business Definition", "Source Table", "Source Field"
-  COLUMN_MAP = {
-      "name": ["KPI Name", "kpi_name", "Measure Name", "Variable"],
-      "definition": ["Business Definition", "Description", "Def"],
-      "table_name": ["Source Table", "Table", "Datasource Table"],
-      "column_name": ["Source Field", "Column", "Field Name"],
-      "sector": ["Sector", "LOB Sector"],
-      "subdomain": ["Sub Domain", "Subdomain", "Area"],
-  }
+  py -3 scripts/seed_ontology_from_excel.py path/to/kpi_bank.xlsx
+  py -3 scripts/seed_ontology_from_excel.py path/to/kpi_bank.xlsx --sheet "Sheet1"
+  py -3 scripts/seed_ontology_from_excel.py path/to/kpi_bank.xlsx --dry-run
+  py -3 scripts/seed_ontology_from_excel.py path/to/kpi_bank.xlsx --update-existing
+  py -3 scripts/seed_ontology_from_excel.py path/to/kpi_bank.xlsx --inspect
 """
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import uuid
 from pathlib import Path
 
-# Allow running as: py -3 scripts/seed_ontology_from_excel.py ...
 _BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(_BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(_BACKEND_ROOT))
@@ -51,25 +39,22 @@ from app.services.ontology.taxonomy import (
     DEFAULT_SECTOR,
     DEFAULT_SUBDOMAIN,
     normalize_scope,
+    suggest_scope_from_applicability,
     validate_sector,
     validate_subdomain,
 )
 import app.models.ontology  # noqa: F401
 
 # ─────────────────────────────────────────────────────────────────────────────
-# EDIT THIS SECTION for each Excel file (or pass --map-json)
+# COLUMN_MAP — ontology field → Excel header aliases (first match wins)
+# Tuned for: Measurement(KPI) | Definition | Fields required… | Applicability…
 # ─────────────────────────────────────────────────────────────────────────────
-#
-# Keys = ontology / script fields
-# Values = list of Excel header aliases (first match wins; case/space-insensitive)
-#
-# Required (one of):
-#   name  OR  (table_name + column_name)  — name can be auto-built from lineage
-#   definition  OR it will default to "name from table.column"
-#
 COLUMN_MAP: dict[str, list[str]] = {
-    # KPI identity
     "name": [
+        "Measurement(KPI)",
+        "Measurement (KPI)",
+        "Measurement",
+        "measurement kpi",
         "name",
         "kpi",
         "kpi_name",
@@ -79,12 +64,11 @@ COLUMN_MAP: dict[str, list[str]] = {
         "measure name",
         "variable",
         "variable_name",
-        "variable name",
-        "worksheet_kpi",
         "metric",
         "metric_name",
     ],
     "definition": [
+        "Definition",
         "definition",
         "def",
         "description",
@@ -93,7 +77,32 @@ COLUMN_MAP: dict[str, list[str]] = {
         "meaning",
         "desc",
     ],
-    # Lineage: Table.Column  (from your worksheets / tables inventory)
+    # Comma-separated source fields → representative_lineage
+    "fields_required": [
+        "Fields required to create the Metric",
+        "Fields required to create the Metric ",
+        "Fields Required to Create the Metric",
+        "Fields required to create Metric",
+        "Felids required to create the Metric",  # common typo
+        "Felids required to create Metric",
+        "Fields Required",
+        "fields_required",
+        "fields required",
+        "source fields",
+        "required fields",
+        "metric fields",
+    ],
+    # Sheet applicability → aliases + subdomain inference
+    "applicability": [
+        "Applicability with Sheet Names",
+        "Applicablity with Sheet Names",  # common typo
+        "Applicability with Sheet Name",
+        "Applicability",
+        "Applicable Sheets",
+        "Sheet Names",
+        "applicability",
+        "applicable_sheets",
+    ],
     "table_name": [
         "table",
         "table_name",
@@ -116,7 +125,6 @@ COLUMN_MAP: dict[str, list[str]] = {
         "source_column",
         "attribute",
     ],
-    # Scope
     "sector": ["sector", "industry", "vertical"],
     "subdomain": [
         "subdomain",
@@ -127,7 +135,6 @@ COLUMN_MAP: dict[str, list[str]] = {
         "subject_area",
     ],
     "domain": ["domain", "business_domain", "legacy_domain"],
-    # Optional enrichment
     "aliases": ["aliases", "alias", "aka", "synonyms", "alternate_names"],
     "aggregation_type": [
         "aggregation_type",
@@ -160,10 +167,9 @@ COLUMN_MAP: dict[str, list[str]] = {
     "created_by": ["created_by", "owner", "author"],
 }
 
-# Defaults applied when Excel has no sector/subdomain columns
 DEFAULTS = {
-    "sector": DEFAULT_SECTOR,          # insurance | banking | finance | operational
-    "subdomain": DEFAULT_SUBDOMAIN,    # e.g. claims | shared | actuarial
+    "sector": DEFAULT_SECTOR,
+    "subdomain": DEFAULT_SUBDOMAIN,
     "aggregation_type": "UNKNOWN",
     "status": "active",
     "created_by": "excel_seed",
@@ -177,11 +183,15 @@ VALID_STATUS = {"active", "stale"}
 
 
 def _norm_header(h: str) -> str:
-    return " ".join(str(h).strip().lower().replace("_", " ").split())
+    """Normalize Excel headers: Measurement(KPI) → measurement kpi."""
+    text = str(h).strip().lower()
+    text = text.replace("_", " ")
+    text = re.sub(r"[()\[\]{}]", " ", text)
+    text = re.sub(r"[^\w\s&+-]", " ", text)
+    return " ".join(text.split())
 
 
 def _build_header_index(columns: list) -> dict[str, str]:
-    """normalized header → original column name in dataframe."""
     out: dict[str, str] = {}
     for c in columns:
         out[_norm_header(c)] = c
@@ -192,10 +202,6 @@ def resolve_column_map(
     excel_columns: list,
     column_map: dict[str, list[str]],
 ) -> dict[str, str | None]:
-    """
-    Map ontology field → actual Excel column name (or None if not found).
-    First alias that matches an Excel header wins.
-    """
     index = _build_header_index(excel_columns)
     resolved: dict[str, str | None] = {}
     for field, aliases in column_map.items():
@@ -228,16 +234,23 @@ def _split_list(text: str) -> list[str]:
             return [str(x).strip() for x in parsed if str(x).strip()]
         except json.JSONDecodeError:
             pass
-    # support comma or pipe or semicolon
     for sep in (",", "|", ";"):
         if sep in text:
             return [p.strip() for p in text.split(sep) if p.strip()]
     return [text]
 
 
-def _build_lineage(table: str, column: str, explicit: str) -> list[str]:
+def _build_lineage(
+    table: str,
+    column: str,
+    explicit: str,
+    fields_required: str,
+) -> list[str]:
+    """Prefer explicit lineage, then Fields required (CSV), then table.column."""
     if explicit:
         return _split_list(explicit)
+    if fields_required:
+        return _split_list(fields_required)
     if table and column:
         return [f"{table}.{column}"]
     if column:
@@ -248,7 +261,6 @@ def _build_lineage(table: str, column: str, explicit: str) -> list[str]:
 def _build_name(name: str, table: str, column: str, worksheet: str) -> str:
     if name:
         return name
-    # Auto-name from table.column / worksheet context when Excel is a field catalog
     if table and column:
         return f"{column} ({table})"
     if column:
@@ -282,17 +294,30 @@ def row_to_kpi(
     column = _cell(row, resolved.get("column_name"))
     worksheet = _cell(row, resolved.get("worksheet_name"))
     lineage_raw = _cell(row, resolved.get("representative_lineage"))
+    fields_required = _cell(row, resolved.get("fields_required"))
+    applicability = _cell(row, resolved.get("applicability"))
 
     name = _build_name(name, table, column, worksheet)
     if not name:
         return None
 
     definition = _build_definition(definition, name, table, column, worksheet)
-    lineage = _build_lineage(table, column, lineage_raw)
+    lineage = _build_lineage(table, column, lineage_raw, fields_required)
 
     domain = _cell(row, resolved.get("domain"))
-    sector_raw = _cell(row, resolved.get("sector")) or defaults.get("sector")
-    subdomain_raw = _cell(row, resolved.get("subdomain")) or defaults.get("subdomain")
+    sector_raw = _cell(row, resolved.get("sector"))
+    subdomain_raw = _cell(row, resolved.get("subdomain"))
+
+    # Infer scope from Applicability sheet names when sector/subdomain absent
+    if not sector_raw and not subdomain_raw and applicability:
+        sec_i, sub_i = suggest_scope_from_applicability(applicability)
+        sector_raw = sec_i
+        subdomain_raw = sub_i
+        if not domain:
+            domain = applicability
+    else:
+        sector_raw = sector_raw or defaults.get("sector")
+        subdomain_raw = subdomain_raw or defaults.get("subdomain")
 
     sector = validate_sector(sector_raw)
     subdomain = validate_subdomain(sector, subdomain_raw) if sector else None
@@ -303,7 +328,7 @@ def row_to_kpi(
             legacy_domain=domain or None,
         )
     if not domain:
-        domain = f"{sector}/{subdomain}"
+        domain = applicability or f"{sector}/{subdomain}"
 
     agg = (_cell(row, resolved.get("aggregation_type")) or defaults.get("aggregation_type", "UNKNOWN")).upper()
     if agg == "AVERAGE":
@@ -317,7 +342,12 @@ def row_to_kpi(
 
     created_by = _cell(row, resolved.get("created_by")) or defaults.get("created_by", "excel_seed")
     aliases = _split_list(_cell(row, resolved.get("aliases")))
-    # Keep worksheet name as an alias so matching can use it later
+
+    # Applicability sheet names become aliases (helps matching / filtering)
+    for sheet in _split_list(applicability):
+        if sheet and sheet not in aliases and sheet.lower() != name.lower():
+            aliases.append(sheet)
+
     if worksheet and worksheet not in aliases and worksheet.lower() != name.lower():
         aliases.append(worksheet)
 
@@ -351,8 +381,8 @@ def inspect_excel(path: Path, sheet_name: str | int, column_map: dict) -> dict:
         "unmatched_excel_headers": [str(c) for c in unmatched],
         "rows": len(df),
         "hint": (
-            "Edit COLUMN_MAP at the top of this script so each ontology field "
-            "lists the Excel header names you see under excel_headers."
+            "Expected headers: Measurement(KPI), Definition, "
+            "Fields required to create the Metric, Applicability with Sheet Names"
         ),
     }
 
@@ -379,9 +409,9 @@ def seed_from_excel(
 
     if not resolved.get("name") and not (resolved.get("table_name") and resolved.get("column_name")):
         raise ValueError(
-            "Could not resolve a KPI name source. Map either 'name' or both "
-            f"'table_name' + 'column_name'. Detected headers: {list(df.columns)}. "
-            f"Resolved: {resolved}. Run with --inspect and edit COLUMN_MAP."
+            "Could not resolve Measurement(KPI) / name column. "
+            f"Detected headers: {list(df.columns)}. Resolved: {resolved}. "
+            "Run with --inspect."
         )
 
     db: Session = SessionLocal()
@@ -403,6 +433,7 @@ def seed_from_excel(
                 "sector": kpi.sector,
                 "subdomain": kpi.subdomain,
                 "lineage": kpi.representative_lineage,
+                "aliases": kpi.aliases,
                 "aggregation_type": kpi.aggregation_type,
             })
 
@@ -461,7 +492,7 @@ def _load_map_json(path: str | None) -> dict[str, list[str]] | None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Seed ontology_kpis from inconsistent Excel (editable COLUMN_MAP)"
+        description="Seed ontology_kpis from Measurement(KPI) Excel bank format"
     )
     parser.add_argument("excel_path", help="Path to .xlsx / .xls")
     parser.add_argument("--sheet", default="0", help="Sheet name or index (default: 0)")
@@ -469,11 +500,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true", help="Preview inserts; do not write")
     parser.add_argument("--update-existing", action="store_true", help="Update rows matched by name")
     parser.add_argument("--skip-embed", action="store_true", help="Skip embedding recomputation")
-    parser.add_argument(
-        "--map-json",
-        help="Optional JSON file overriding COLUMN_MAP, e.g. "
-             '{"name":["KPI Name"],"table_name":["Table"],"column_name":["Field"]}',
-    )
+    parser.add_argument("--map-json", help="Optional JSON override for COLUMN_MAP")
     parser.add_argument("--sector", help=f"Default sector (default: {DEFAULT_SECTOR})")
     parser.add_argument("--subdomain", help=f"Default subdomain (default: {DEFAULT_SUBDOMAIN})")
     args = parser.parse_args(argv)

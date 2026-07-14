@@ -1,11 +1,14 @@
 {
-  "name": ["KPI Name", "Measure Name", "Variable"],
-  "definition": ["Business Definition", "Description"],
-  "table_name": ["Source Table", "Table Name", "Physical Table"],
-  "column_name": ["Source Field", "Column Name", "Field Name"],
-  "sector": ["Sector"],
-  "subdomain": ["Sub Domain", "Subdomain"],
+  "name": ["Measurement(KPI)", "Measurement (KPI)", "Measurement"],
+  "definition": ["Definition"],
+  "fields_required": [
+    "Fields required to create the Metric",
+    "Felids required to create the Metric"
+  ],
+  "applicability": [
+    "Applicability with Sheet Names",
+    "Applicablity with Sheet Names"
+  ],
   "aggregation_type": ["Aggregation", "Agg"],
-  "aliases": ["Aliases", "AKA"],
-  "worksheet_name": ["Worksheet", "Sheet Name"]
+  "aliases": ["Aliases", "AKA"]
 }
