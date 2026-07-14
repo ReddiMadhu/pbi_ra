@@ -85,6 +85,11 @@ def sync_metadata_to_db(metadata: WorkbookMetadata, pg_session: Session):
         except Exception:
             pass
         try:
+            from app.db.migrations.ontology_tables import migrate_ontology_kpi_scoped_unique
+            migrate_ontology_kpi_scoped_unique(conn)
+        except Exception:
+            pass
+        try:
             conn.execute(text("DROP INDEX IF EXISTS idx_rkm_report_canonical;"))
         except Exception:
             pass

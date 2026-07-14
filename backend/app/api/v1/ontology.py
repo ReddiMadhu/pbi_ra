@@ -116,9 +116,24 @@ def list_kpis(
 @router.post("/kpis")
 def create_kpi(body: dict, db: Session = Depends(get_db)):
     sector, subdomain = _apply_kpi_scope(body)
+    name = body["name"]
+    existing = (
+        db.query(OntologyKPI)
+        .filter(
+            OntologyKPI.name == name,
+            OntologyKPI.sector == sector,
+            OntologyKPI.subdomain == subdomain,
+        )
+        .first()
+    )
+    if existing:
+        raise HTTPException(
+            409,
+            f"KPI '{name}' already exists for {sector}/{subdomain}",
+        )
     kpi = OntologyKPI(
         kpi_id=str(uuid.uuid4()),
-        name=body["name"],
+        name=name,
         definition=body["definition"],
         domain=body.get("domain") or f"{sector}/{subdomain}",
         sector=sector,

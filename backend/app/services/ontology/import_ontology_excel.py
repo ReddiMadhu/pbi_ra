@@ -2,11 +2,15 @@
 Import canonical KPIs from an Excel file into ontology_kpis (SQLite).
 
 Expected Excel columns (header row required) — bank format:
-  Measurement(KPI)                         | required | unique canonical KPI name
+  Measurement(KPI)                         | required | KPI name (unique per sector+subdomain)
   Definition                               | required | business definition
   Fields required to create the Metric     | optional | comma-separated lineage fields
   Applicability with Sheet Names           | optional | e.g. Marketing, Claims_Litigation
                                            |         | → aliases + sector/subdomain
+
+Note: the same Measurement(KPI) may appear on multiple Excel tabs (e.g. Marketing and
+Distribution both have "Average Premium"). Those are stored as separate ontology rows
+keyed by (name, sector, subdomain).
 
 Also accepts legacy / alternate headers:
   name, definition, sector, subdomain, domain, aliases, aggregation_type,
@@ -225,6 +229,12 @@ def import_ontology_excel(
         raise FileNotFoundError(f"Excel file not found: {path}")
 
     Base.metadata.create_all(bind=engine)
+    try:
+        from app.db.migrations.ontology_tables import migrate_ontology_kpi_scoped_unique
+        with engine.begin() as conn:
+            migrate_ontology_kpi_scoped_unique(conn)
+    except Exception:
+        pass
 
     xl = pd.ExcelFile(path)
     if all_sheets:
@@ -248,6 +258,7 @@ def import_ontology_excel(
     sheets_processed: list[str] = []
     sheets_skipped: list[dict] = []
     resolved_by_sheet: dict[str, dict] = {}
+    batch_seen: set[tuple] = set()
 
     try:
         for tab_name, df in frames:
@@ -277,9 +288,18 @@ def import_ontology_excel(
                     skipped += 1
                     continue
 
-                existing = db.query(OntologyKPI).filter(OntologyKPI.name == kpi.name).first()
-                if existing:
-                    if update_existing:
+                key = ((kpi.name or "").strip().lower(), kpi.sector or "", kpi.subdomain or "")
+                existing = (
+                    db.query(OntologyKPI)
+                    .filter(
+                        OntologyKPI.name == kpi.name,
+                        OntologyKPI.sector == kpi.sector,
+                        OntologyKPI.subdomain == kpi.subdomain,
+                    )
+                    .first()
+                )
+                if existing or key in batch_seen:
+                    if existing and update_existing:
                         existing.definition = kpi.definition
                         existing.domain = kpi.domain
                         existing.sector = kpi.sector
@@ -292,10 +312,13 @@ def import_ontology_excel(
                         updated += 1
                     else:
                         skipped += 1
+                    batch_seen.add(key)
                     continue
 
+                batch_seen.add(key)
                 if not dry_run:
                     db.add(kpi)
+                    db.flush()
                 inserted += 1
 
         if all_sheets and not sheets_processed:

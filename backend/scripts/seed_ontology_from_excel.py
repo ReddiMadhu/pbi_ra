@@ -428,6 +428,22 @@ def inspect_excel(
     }
 
 
+def _find_existing_kpi(db: Session, name: str, sector: str | None, subdomain: str | None):
+    return (
+        db.query(OntologyKPI)
+        .filter(
+            OntologyKPI.name == name,
+            OntologyKPI.sector == sector,
+            OntologyKPI.subdomain == subdomain,
+        )
+        .first()
+    )
+
+
+def _scope_key(name: str, sector: str | None, subdomain: str | None) -> tuple:
+    return ((name or "").strip().lower(), sector or "", subdomain or "")
+
+
 def _process_dataframe(
     db: Session,
     df: pd.DataFrame,
@@ -439,10 +455,12 @@ def _process_dataframe(
     update_existing: bool,
     preview: list[dict],
     skip_if_invalid: bool = False,
+    batch_seen: set | None = None,
 ) -> tuple[int, int, int, dict[str, str | None], bool]:
     """
     Returns (inserted, updated, skipped, resolved, processed).
     If skip_if_invalid and sheet lacks Measurement(KPI)/name → processed=False.
+    Uniqueness is (name, sector, subdomain) — same KPI name OK across sheets.
     """
     resolved = resolve_column_map(list(df.columns), column_map)
     has_name = bool(resolved.get("name") or (resolved.get("table_name") and resolved.get("column_name")))
@@ -454,6 +472,7 @@ def _process_dataframe(
             f"Headers: {list(df.columns)}. Resolved: {resolved}."
         )
 
+    seen = batch_seen if batch_seen is not None else set()
     inserted = updated = skipped = 0
     for _, row in df.iterrows():
         kpi = row_to_kpi(row, resolved, defaults, excel_tab_name=excel_tab_name)
@@ -461,6 +480,7 @@ def _process_dataframe(
             skipped += 1
             continue
 
+        key = _scope_key(kpi.name, kpi.sector, kpi.subdomain)
         if len(preview) < 10:
             preview.append({
                 "name": kpi.name,
@@ -473,9 +493,9 @@ def _process_dataframe(
                 "aggregation_type": kpi.aggregation_type,
             })
 
-        existing = db.query(OntologyKPI).filter(OntologyKPI.name == kpi.name).first()
-        if existing:
-            if update_existing and not dry_run:
+        existing = _find_existing_kpi(db, kpi.name, kpi.sector, kpi.subdomain)
+        if existing or key in seen:
+            if existing and update_existing and not dry_run:
                 existing.definition = kpi.definition
                 existing.domain = kpi.domain
                 existing.sector = kpi.sector
@@ -488,10 +508,13 @@ def _process_dataframe(
                 updated += 1
             else:
                 skipped += 1
+            seen.add(key)
             continue
 
+        seen.add(key)
         if not dry_run:
             db.add(kpi)
+            db.flush()  # so later sheets see this row in the same transaction
         inserted += 1
 
     return inserted, updated, skipped, resolved, True
@@ -516,6 +539,13 @@ def seed_from_excel(
     defaults = {**DEFAULTS, **(defaults or {})}
 
     Base.metadata.create_all(bind=engine)
+    # Allow same KPI name per subdomain (Marketing vs Distribution)
+    try:
+        from app.db.migrations.ontology_tables import migrate_ontology_kpi_scoped_unique
+        with engine.begin() as conn:
+            migrate_ontology_kpi_scoped_unique(conn)
+    except Exception:
+        pass
 
     if all_sheets:
         sheet_names = list_excel_sheets(path)
@@ -538,6 +568,7 @@ def seed_from_excel(
     rows_read = 0
     sheets_loaded: list[str] = []
     sheets_skipped: list[dict] = []
+    batch_seen: set = set()
 
     try:
         for tab_name, df in frames:
@@ -552,6 +583,7 @@ def seed_from_excel(
                 update_existing=update_existing,
                 preview=preview,
                 skip_if_invalid=all_sheets,
+                batch_seen=batch_seen,
             )
             resolved_by_sheet[tab_name] = resolved
             if not processed:

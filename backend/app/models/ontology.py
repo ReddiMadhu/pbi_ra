@@ -1,13 +1,23 @@
-from sqlalchemy import Column, String, Float, Text, DateTime, LargeBinary, Index
+from sqlalchemy import Column, String, Float, Text, DateTime, LargeBinary, Index, UniqueConstraint
 from datetime import datetime
 from app.db.session import Base
 
 
 class OntologyKPI(Base):
     __tablename__ = "ontology_kpis"
+    __table_args__ = (
+        UniqueConstraint(
+            "name",
+            "sector",
+            "subdomain",
+            name="uq_okpi_name_sector_subdomain",
+        ),
+    )
 
     kpi_id = Column(String, primary_key=True)
-    name = Column(String, nullable=False, unique=True)
+    # Name alone is NOT unique: same Measurement(KPI) can exist per subdomain
+    # e.g. Average Premium in Marketing and Distribution
+    name = Column(String, nullable=False, index=True)
     definition = Column(Text, nullable=False)
     domain = Column(String, nullable=True)
     sector = Column(String, nullable=True, index=True)
