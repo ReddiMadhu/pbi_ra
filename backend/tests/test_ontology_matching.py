@@ -319,6 +319,8 @@ def test_applicability_sheet_scope_mapping():
     assert suggest_scope_from_applicability("Distribution") == ("insurance", "distribution")
     assert suggest_scope_from_applicability("Service & Operations") == ("insurance", "service_and_operations")
     assert suggest_scope_from_applicability("underwriting") == ("insurance", "underwriting")
+    assert suggest_scope_from_applicability("CX & Digital") == ("insurance", "cx_and_digital")
+    assert suggest_scope_from_applicability("CX&Digital") == ("insurance", "cx_and_digital")
     # Multiple sheets → first listed wins (not collapsed to a fake shared bucket)
     assert suggest_scope_from_applicability("Marketing, Claims_Litigation") == ("insurance", "marketing")
 

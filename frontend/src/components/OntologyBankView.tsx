@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { BookOpen, Search, Loader2, AlertCircle, Filter } from 'lucide-react';
 import { API_BASE_URL } from '@/config';
 import { HITLResolutionPanel, MappingRow } from './HITLResolutionPanel';
@@ -40,6 +40,14 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
   const [selectedKpi, setSelectedKpi] = useState<CanonicalKPI | null>(null);
   const [resolveMapping, setResolveMapping] = useState<MappingRow | null>(null);
 
+  const labelSubdomain = useCallback(
+    (key: string | null | undefined) => {
+      if (!key) return '—';
+      return taxonomy?.subdomain_display_labels?.[key] ?? key;
+    },
+    [taxonomy],
+  );
+
   const load = async () => {
     setLoading(true);
     try {
@@ -74,9 +82,11 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
   }, [kpis, taxonomy]);
 
   const subdomains = useMemo(() => {
+    // Prefer full taxonomy list so new subdomains (e.g. CX & Digital) appear even before KPIs exist
     if (sectorFilter === 'all') {
-      const all = kpis.map((k) => k.subdomain).filter(Boolean);
-      return ['all', ...Array.from(new Set(all))];
+      const fromTax = Object.values(taxonomy?.subdomains_by_sector ?? {}).flat();
+      const fromKpis = kpis.map((k) => k.subdomain).filter(Boolean);
+      return ['all', ...Array.from(new Set([...fromTax, ...fromKpis]))];
     }
     const fromTax = taxonomy?.subdomains_by_sector?.[sectorFilter] ?? [];
     const fromKpis = kpis.filter((k) => k.sector === sectorFilter).map((k) => k.subdomain).filter(Boolean);
@@ -90,12 +100,13 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
         !q ||
         k.name.toLowerCase().includes(q) ||
         k.definition.toLowerCase().includes(q) ||
-        k.aliases?.some((a) => a.toLowerCase().includes(q));
+        k.aliases?.some((a) => a.toLowerCase().includes(q)) ||
+        labelSubdomain(k.subdomain).toLowerCase().includes(q);
       const matchSector = sectorFilter === 'all' || k.sector === sectorFilter;
       const matchSubdomain = subdomainFilter === 'all' || k.subdomain === subdomainFilter;
       return matchSearch && matchSector && matchSubdomain;
     });
-  }, [kpis, search, sectorFilter, subdomainFilter]);
+  }, [kpis, search, sectorFilter, subdomainFilter, labelSubdomain]);
 
   const filteredMappings = useMemo(() => {
     let list = mappings;
@@ -172,15 +183,13 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
               ))}
             </select>
             <select
-              className="px-3 py-2 rounded-lg border border-border bg-background text-sm"
+              className="px-3 py-2 rounded-lg border border-border bg-background text-sm min-w-[180px]"
               value={subdomainFilter}
               onChange={(e) => setSubdomainFilter(e.target.value)}
             >
               {subdomains.map((d) => (
                 <option key={d} value={d}>
-                  {d === 'all'
-                    ? 'All subdomains'
-                    : (taxonomy?.subdomain_display_labels?.[d] ?? d)}
+                  {d === 'all' ? 'All subdomains' : labelSubdomain(d)}
                 </option>
               ))}
             </select>
@@ -209,7 +218,7 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className="font-semibold">{kpi.name}</span>
                   <Badge variant="outline" className="text-[10px]">
-                    {kpi.sector}/{taxonomy?.subdomain_display_labels?.[kpi.subdomain] ?? kpi.subdomain}
+                    {kpi.sector}/{labelSubdomain(kpi.subdomain)}
                   </Badge>
                   {kpi.is_active_sector === false && (
                     <Badge variant="outline" className="text-[10px] text-muted-foreground">inactive sector</Badge>
@@ -255,7 +264,13 @@ export function OntologyBankView({ filterReportId }: { filterReportId?: string }
             <h3 className="text-lg font-bold mb-4">{selectedKpi.name}</h3>
             <div className="space-y-3 text-sm">
               <div><span className="text-muted-foreground">Sector:</span> {selectedKpi.sector}</div>
-              <div><span className="text-muted-foreground">Subdomain:</span> {selectedKpi.subdomain}</div>
+              <div>
+                <span className="text-muted-foreground">Subdomain:</span>{' '}
+                {labelSubdomain(selectedKpi.subdomain)}
+                {selectedKpi.subdomain && selectedKpi.subdomain !== labelSubdomain(selectedKpi.subdomain) && (
+                  <span className="text-xs text-muted-foreground ml-1">({selectedKpi.subdomain})</span>
+                )}
+              </div>
               <div><span className="text-muted-foreground">Domain:</span> {selectedKpi.domain}</div>
               <div><span className="text-muted-foreground">Aggregation:</span> {selectedKpi.aggregation_type}</div>
               <div><span className="text-muted-foreground">Definition:</span> {selectedKpi.definition}</div>

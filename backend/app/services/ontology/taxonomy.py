@@ -10,7 +10,7 @@ SECTORS = ("insurance", "banking", "finance", "operational")
 # Canonical subdomain keys stored in DB (lowercase snake / underscore form).
 # Insurance mirrors Excel "Applicability with Sheet Names":
 #   Marketing, Distribution, Actuarial & Risk, underwriting,
-#   Claims_Litigation, Service & Operations
+#   Claims_Litigation, Service & Operations, CX & Digital
 SUBDOMAINS_BY_SECTOR: dict[str, tuple[str, ...]] = {
     "insurance": (
         "marketing",
@@ -19,6 +19,7 @@ SUBDOMAINS_BY_SECTOR: dict[str, tuple[str, ...]] = {
         "underwriting",
         "claims_litigation",
         "service_and_operations",
+        "cx_and_digital",
     ),
     "banking": ("retail", "corporate", "risk", "shared"),
     "finance": ("accounting", "treasury", "fp_and_a", "shared"),
@@ -33,6 +34,7 @@ SUBDOMAIN_DISPLAY_LABELS: dict[str, str] = {
     "underwriting": "underwriting",
     "claims_litigation": "Claims_Litigation",
     "service_and_operations": "Service & Operations",
+    "cx_and_digital": "CX & Digital",
     "retail": "Retail",
     "corporate": "Corporate",
     "risk": "Risk",
@@ -80,8 +82,19 @@ SUBDOMAIN_ALIASES: dict[str, str] = {
     "service operations": "service_and_operations",
     "operations": "service_and_operations",
     "service": "service_and_operations",
+    # cx & digital
+    "cx_and_digital": "cx_and_digital",
+    "cx & digital": "cx_and_digital",
+    "cx and digital": "cx_and_digital",
+    "cx digital": "cx_and_digital",
+    "cx&digital": "cx_and_digital",
+    "cx & diigtal": "cx_and_digital",  # typo
+    "cx diigtal": "cx_and_digital",
+    "customer experience": "cx_and_digital",
+    "customer experience & digital": "cx_and_digital",
+    "digital": "cx_and_digital",
+    "digital cx": "cx_and_digital",
     # legacy short names → closest new subdomain
-    "actuarial": "actuarial_and_risk",
     "shared": "service_and_operations",
 }
 
@@ -100,6 +113,8 @@ LEGACY_DOMAIN_TO_SUBDOMAIN: dict[str, tuple[str, str]] = {
     "actuarial & risk": ("insurance", "actuarial_and_risk"),
     "claims_litigation": ("insurance", "claims_litigation"),
     "service & operations": ("insurance", "service_and_operations"),
+    "cx & digital": ("insurance", "cx_and_digital"),
+    "cx and digital": ("insurance", "cx_and_digital"),
 }
 
 # Excel applicability sheet string → (sector, subdomain) — identity map via aliases
