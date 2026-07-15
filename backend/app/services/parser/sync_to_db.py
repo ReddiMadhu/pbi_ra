@@ -4,6 +4,7 @@ from app.models.postgres import (
     Workbook, Dashboard, Worksheet, CalculatedField,
     DatasourceModel, TableModel, TableJoin
 )
+from app.models.ontology import ReportKPIMapping
 from app.agents.workflows import run_governance_workflow
 
 
@@ -112,10 +113,14 @@ def sync_metadata_to_db(metadata: WorkbookMetadata, pg_session: Session):
             pg_session.query(TableModel).filter(TableModel.datasource_id == ds.id).delete()
         pg_session.query(DatasourceModel).filter(DatasourceModel.workbook_id == existing_wb.id).delete()
         
-        # Delete related worksheets, calculated fields, and risks
+        # Delete related worksheets, calculated fields, risks, and ontology mappings
         for dash in pg_session.query(Dashboard).filter(Dashboard.workbook_id == existing_wb.id).all():
             pg_session.query(CalculatedField).filter(CalculatedField.dashboard_id == dash.id).delete()
             pg_session.query(GovernanceRisk).filter(GovernanceRisk.dashboard_id == dash.id).delete()
+            # Fix #2: clean up ReportKPIMapping rows tied to old dashboard IDs
+            pg_session.query(ReportKPIMapping).filter(
+                ReportKPIMapping.report_id == str(dash.id)
+            ).delete()
         pg_session.query(Worksheet).filter(Worksheet.workbook_id == existing_wb.id).delete()
         pg_session.query(Dashboard).filter(Dashboard.workbook_id == existing_wb.id).delete()
         
@@ -225,16 +230,37 @@ def sync_metadata_to_db(metadata: WorkbookMetadata, pg_session: Session):
                 measure_bindings=ws_obj.measure_bindings,
             ))
 
-    # Calculated fields — attach to first dashboard as before
+    # Calculated fields — attach to every dashboard that references them
+    cf_names = set()
     for ds_meta in metadata.datasources:
         for cf in ds_meta.calculated_fields:
-            dash_id = wb_db.dashboards[0].id if wb_db.dashboards else None
-            if dash_id:
+            cf_name = cf.caption or cf.name
+            if cf_name in cf_names:
+                continue
+            cf_names.add(cf_name)
+            attached = False
+            for dash_db_obj in wb_db.dashboards:
+                dash_ws_names = {ws.name for ws in dash_db_obj.worksheets}
+                uses_cf = any(
+                    cf_name in (getattr(ws_obj, 'used_calculated_fields', None) or [])
+                    for ws_obj in metadata.worksheets
+                    if ws_obj.name in dash_ws_names
+                )
+                if uses_cf:
+                    pg_session.add(CalculatedField(
+                        dashboard_id=dash_db_obj.id,
+                        name=cf_name,
+                        formula=cf.formula,
+                        datatype=cf.datatype,
+                    ))
+                    attached = True
+            # Fallback: attach to first dashboard if no worksheet match found
+            if not attached and wb_db.dashboards:
                 pg_session.add(CalculatedField(
-                    dashboard_id=dash_id,
-                    name=cf.caption or cf.name,
+                    dashboard_id=wb_db.dashboards[0].id,
+                    name=cf_name,
                     formula=cf.formula,
-                    datatype=cf.datatype
+                    datatype=cf.datatype,
                 ))
 
     pg_session.commit()

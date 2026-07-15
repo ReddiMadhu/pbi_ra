@@ -6,29 +6,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from app.db.session import get_db
 from app.models.postgres import Dashboard
-def get_user_group_mapping():
-    import pandas as pd
-    mapping = {}
-    excel_path = os.path.join(os.path.dirname(__file__), "../../../usergroup.xlsx")
-    if os.path.exists(excel_path):
-        try:
-            df = pd.read_excel(excel_path, header=None)
-            for _, row in df.iterrows():
-                dash_name = str(row.iloc[0]).strip().lower()
-                
-                try:
-                    days_ago = int(float(row.iloc[1]))
-                except:
-                    days_ago = None
-                    
-                groups = [str(g).strip() for g in row.iloc[2:].dropna().tolist() if str(g).strip()]
-                mapping[dash_name] = {
-                    "days_ago": days_ago,
-                    "groups": groups
-                }
-        except Exception as e:
-            print(f"Error reading excel: {e}")
-    return mapping
+from app.services.user_groups import get_user_group_mapping, lookup_user_group
 router = APIRouter()
 def parse_llm_json(content: str) -> dict:
     """Helper to extract JSON from markdown code blocks and parse it."""
@@ -41,12 +19,24 @@ def parse_llm_json(content: str) -> dict:
         return json.loads(content.strip())
     except:
         return {}
-from functools import lru_cache
-@lru_cache(maxsize=100)
+# Fix #6: Use a clearable dict cache instead of lru_cache for KPI clusters
+_kpi_cluster_cache: dict[tuple, dict] = {}
+
+
+def clear_kpi_cluster_cache() -> int:
+    """Clear the KPI cluster cache. Returns count of cleared entries."""
+    count = len(_kpi_cluster_cache)
+    _kpi_cluster_cache.clear()
+    return count
+
+
 def get_kpi_clusters(kpi_names_tuple: tuple) -> dict:
     if len(kpi_names_tuple) <= 1:
         return {k: k for k in kpi_names_tuple}
-        
+
+    if kpi_names_tuple in _kpi_cluster_cache:
+        return _kpi_cluster_cache[kpi_names_tuple]
+
     prompt = f"""
     You are a data analyst. I have a list of KPI names extracted from several dashboards.
     Group them by semantic similarity. If two KPIs mean the exact same thing (e.g., "Total Revenue" and "Revenue", or "Active Users" and "User Count"), map them to a single canonical name.
@@ -76,10 +66,14 @@ def get_kpi_clusters(kpi_names_tuple: tuple) -> dict:
             content = content[:-3]
         
         mapping = json.loads(content.strip())
-        return {k: mapping.get(k, k) for k in kpi_names_tuple}
+        result = {k: mapping.get(k, k) for k in kpi_names_tuple}
+        _kpi_cluster_cache[kpi_names_tuple] = result
+        return result
     except Exception as e:
         print(f"--- KPI CLUSTERING FAILED ---\n{e}")
-        return {k: k for k in kpi_names_tuple}
+        result = {k: k for k in kpi_names_tuple}
+        _kpi_cluster_cache[kpi_names_tuple] = result
+        return result
 def build_graph_for_dashboards(requested_dashboards: List[str], db: Session):
     nodes = []
     links = []

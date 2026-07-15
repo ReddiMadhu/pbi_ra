@@ -72,11 +72,11 @@ class CachedLLM:
         # 1. Check Cache
         prompt_hash = self._get_hash(prompt_str)
         if prompt_hash in self.cache:
-            print(f"⚡ [LLM Cache Hit] Returning cached response for hash: {prompt_hash[:8]}")
+            print(f"[LLM Cache Hit] Returning cached response for hash: {prompt_hash[:8]}")
             return CachedAIMessage(content=self.cache[prompt_hash])
 
         # 2. Cache Miss -> Call real LLM
-        print(f"🌐 [LLM Cache Miss] Calling real AI API for hash: {prompt_hash[:8]}")
+        print(f"[LLM Cache Miss] Calling real AI API for hash: {prompt_hash[:8]}")
         
         # Diagnostic: Save the prompt that caused the miss so we can inspect it in SSH
         try:

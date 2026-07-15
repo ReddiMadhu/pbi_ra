@@ -87,6 +87,99 @@ def _apply_kpi_scope(body: dict, existing: OntologyKPI | None = None) -> tuple[s
     return sector, subdomain
 
 
+@router.get("/workbook/{workbook_name}/kpis")
+def get_workbook_ontology_kpis(workbook_name: str, db: Session = Depends(get_db)):
+    """Aggregated ontology matching results for all dashboards in a workbook."""
+    workbook = db.query(Workbook).filter(Workbook.name == workbook_name).first()
+    if not workbook:
+        workbook = db.query(Workbook).filter(
+            Workbook.name.like(f"%{workbook_name}%")
+        ).first()
+    if not workbook:
+        return {"dashboards": [], "summary": {"total": 0, "mapped": 0, "review": 0, "not_found": 0, "ontology_score": 0}}
+
+    all_dashboards = []
+    total = 0
+    mapped = 0
+    review = 0
+    not_found = 0
+
+    for dash in workbook.dashboards:
+        mappings = (
+            db.query(ReportKPIMapping)
+            .filter(ReportKPIMapping.report_id == str(dash.id))
+            .all()
+        )
+
+        items = []
+        for m in mappings:
+            canonical = None
+            if m.canonical_kpi_id:
+                kpi = db.query(OntologyKPI).filter(OntologyKPI.kpi_id == m.canonical_kpi_id).first()
+                if kpi:
+                    canonical = {
+                        "kpi_id": kpi.kpi_id,
+                        "name": kpi.name,
+                        "definition": kpi.definition,
+                        "domain": kpi.domain,
+                        "sector": kpi.sector,
+                        "subdomain": kpi.subdomain,
+                        "aggregation_type": kpi.aggregation_type,
+                    }
+
+            lineage = []
+            try:
+                lineage = json.loads(m.report_kpi_lineage) if m.report_kpi_lineage else []
+            except Exception:
+                pass
+
+            items.append({
+                "mapping_id": m.mapping_id,
+                "report_kpi_name": m.report_kpi_name,
+                "report_kpi_definition": m.report_kpi_definition,
+                "report_kpi_lineage": lineage,
+                "report_kpi_aggregation": m.report_kpi_aggregation,
+                "worksheet_name": m.worksheet_name,
+                "canonical_kpi": canonical,
+                "similarity_score": m.similarity_score,
+                "confidence_score": m.confidence_score,
+                "similarity_rationale": m.similarity_rationale,
+                "confidence_rationale": m.confidence_rationale,
+                "mapping_status": m.mapping_status,
+                "resolved_by": m.resolved_by,
+            })
+
+            total += 1
+            status = m.mapping_status or ""
+            if status in ("auto_accepted", "human_accepted", "promoted"):
+                mapped += 1
+            elif status == "pending_review":
+                review += 1
+            elif status == "not_found":
+                not_found += 1
+
+        all_dashboards.append({
+            "dashboard_name": dash.name,
+            "dashboard_id": dash.id,
+            "ontology_sector": dash.ontology_sector,
+            "ontology_subdomain": dash.ontology_subdomain,
+            "items": items,
+        })
+
+    ontology_score = round(mapped / total, 2) if total > 0 else 0
+
+    return {
+        "dashboards": all_dashboards,
+        "summary": {
+            "total": total,
+            "mapped": mapped,
+            "review": review,
+            "not_found": not_found,
+            "ontology_score": ontology_score,
+        },
+    }
+
+
 @router.get("/taxonomy")
 def get_taxonomy():
     return get_taxonomy_for_api()

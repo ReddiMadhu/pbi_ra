@@ -17,16 +17,16 @@ class TableResult(BaseModel):
     name: str = Field(description="The name of the conceptual data table (e.g., 'Claims Master', 'Policy Details').")
 
 class ClassificationResult(BaseModel):
-    worksheet_and_field_analysis: str = Field(description="A detailed step-by-step analysis of the worksheets, the charts within them, and their underlying fields. Explain what they measure and what insights they provide. You must generate this analysis BEFORE determining the domain.")
-    domain: str = Field(description="The business domain of the dashboard. Must be one of: 'Claims & Risk', 'Customer Service', 'New Business Ops', 'Sales & pipeline', 'Product Level Performance'. If none of these fit, invent a highly specific custom domain name based on the dashboard context. Base this decision on your worksheet_and_field_analysis.")
-    ontology_sector: str = Field(description="Ontology sector for KPI matching. Must be exactly one of: 'insurance', 'banking', 'finance', 'operational'. For insurance dashboards use 'insurance'.")
-    ontology_subdomain: str = Field(description="Ontology subdomain within the sector. For insurance use exactly one of: 'marketing', 'distribution', 'actuarial_and_risk', 'underwriting', 'claims_litigation', 'service_and_operations', 'cx_and_digital'. marketing=sales funnel/campaign; distribution=channel/agency; actuarial_and_risk=reserving/pricing/product portfolio; underwriting=IGO/NIGO/submission quality; claims_litigation=loss ratio/severity/fraud/litigation; service_and_operations=ops TAT/SLA/back-office; cx_and_digital=NPS/digital journeys/app/portal/self-serve.")
-    line_of_business: str = Field(description="The line of business the dashboard belongs to. Must be exactly one of: 'L&A', 'P&C', 'Worker compensation', 'reisurance', 'Auto insurance', 'health'. Choose the most appropriate based on analysis.")
-    insight_level: str = Field(description="The primary level of granularity for the dashboard. MUST be exactly one of: 'Overall Level', 'Agent Level', 'State Level', 'Region Level', 'Product Level'. Use these strict rules: Choose 'Agent Level' ONLY if every KPI is related to agent-level analysis. Choose 'State Level' ONLY if every KPI is related to state-level analysis. Choose 'Region Level' ONLY if every KPI is related to region-level analysis. Choose 'Product Level' ONLY if every KPI is related to product-level analysis. Choose 'Overall Level' if the dashboard contains a mix of different granularities (e.g., some by state, some by region, some by agent).")
-    complexity: float = Field(description="A complexity score from 1.0 to 10.0 based on the number of worksheets, datasources, and calculated fields.")
-    summary: str = Field(description="A comprehensive description of the dashboard focusing entirely on its business value. MUST be exactly 1 or 2 lines (sentences) maximum. Do NOT mention technical details like the number of worksheets or datasources. Instead, concisely explain what the dashboard shows and explicitly state the intended audience.")
-    kpis: List[KPIResult] = Field(description="A comprehensive list of ALL extracted key performance indicators (KPIs) and their confidence scores. Do not limit the count.")
-    tables: List[TableResult] = Field(description="A list of conceptual AI tables generated based on the KPIs.", default=[])
+    worksheet_and_field_analysis: str = Field(default="Analysis not provided.", description="A detailed step-by-step analysis of the worksheets, the charts within them, and their underlying fields. Explain what they measure and what insights they provide. You must generate this analysis BEFORE determining the domain.")
+    domain: str = Field(default="General", description="The business domain of the dashboard. Must be one of: 'Claims & Risk', 'Customer Service', 'New Business Ops', 'Sales & pipeline', 'Product Level Performance'. If none of these fit, invent a highly specific custom domain name based on the dashboard context. Base this decision on your worksheet_and_field_analysis.")
+    ontology_sector: str = Field(default="insurance", description="Ontology sector for KPI matching. Must be exactly one of: 'insurance', 'banking', 'finance', 'operational'. For insurance dashboards use 'insurance'.")
+    ontology_subdomain: str = Field(default="actuarial_and_risk", description="Ontology subdomain within the sector. For insurance use exactly one of: 'marketing', 'distribution', 'actuarial_and_risk', 'underwriting', 'claims_litigation', 'service_and_operations', 'cx_and_digital'. marketing=sales funnel/campaign; distribution=channel/agency; actuarial_and_risk=reserving/pricing/product portfolio; underwriting=IGO/NIGO/submission quality; claims_litigation=loss ratio/severity/fraud/litigation; service_and_operations=ops TAT/SLA/back-office; cx_and_digital=NPS/digital journeys/app/portal/self-serve.")
+    line_of_business: str = Field(default="L&A", description="The line of business the dashboard belongs to. Must be exactly one of: 'L&A', 'P&C', 'Worker compensation', 'reisurance', 'Auto insurance', 'health'. Choose the most appropriate based on analysis.")
+    insight_level: str = Field(default="Overall Level", description="The primary level of granularity for the dashboard. MUST be exactly one of: 'Overall Level', 'Agent Level', 'State Level', 'Region Level', 'Product Level'. Use these strict rules: Choose 'Agent Level' ONLY if every KPI is related to agent-level analysis. Choose 'State Level' ONLY if every KPI is related to state-level analysis. Choose 'Region Level' ONLY if every KPI is related to region-level analysis. Choose 'Product Level' ONLY if every KPI is related to product-level analysis. Choose 'Overall Level' if the dashboard contains a mix of different granularities (e.g., some by state, some by region, some by agent).")
+    complexity: float = Field(default=5.0, description="A complexity score from 1.0 to 10.0 based on the number of worksheets, datasources, and calculated fields.")
+    summary: str = Field(default="Summary not provided.", description="A comprehensive description of the dashboard focusing entirely on its business value. MUST be exactly 1 or 2 lines (sentences) maximum. Do NOT mention technical details like the number of worksheets or datasources. Instead, concisely explain what the dashboard shows and explicitly state the intended audience.")
+    kpis: List[KPIResult] = Field(default=[], description="A comprehensive list of ALL extracted key performance indicators (KPIs) and their confidence scores. Do not limit the count.")
+    tables: List[TableResult] = Field(default=[], description="A list of conceptual AI tables generated based on the KPIs.")
     is_real_ai: bool = True
 
 class DashboardClassificationAgent:
@@ -204,7 +204,54 @@ Calculated Field Formulas: {formulas}
             )
             
             output = self.llm.invoke(_input.to_string())
-            result = self.parser.parse(output.content)
+            
+            try:
+                result = self.parser.parse(output.content)
+            except Exception as parse_err:
+                print(f"Warning: Pydantic parser failed, attempting manual JSON recovery: {parse_err}")
+                import json
+                import re
+                
+                content = output.content or ""
+                json_match = re.search(r"(\{.*\})", content, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(1)
+                else:
+                    json_str = content
+                
+                data = json.loads(json_str)
+                raw_kpis = data.get("kpis", [])
+                if not isinstance(raw_kpis, list):
+                    raw_kpis = []
+                kpis = []
+                for k in raw_kpis:
+                    if isinstance(k, dict) and "name" in k:
+                        kpis.append(KPIResult(
+                            name=k["name"],
+                            confidence=float(k.get("confidence", 90.0)),
+                            source_description=str(k.get("source_description", "Extracted from worksheets.")),
+                            calculation_logic=str(k.get("calculation_logic", "Standard aggregation.")),
+                            definition=str(k.get("definition", "Business KPI."))
+                        ))
+                
+                if not kpis:
+                    raise parse_err
+                
+                fallback = self._generate_fallback(dashboard_name, worksheets, datasources, formulas)
+                result = ClassificationResult(
+                    worksheet_and_field_analysis=data.get("worksheet_and_field_analysis") or "Parsed via manual JSON recovery.",
+                    domain=data.get("domain") or fallback.domain,
+                    ontology_sector=data.get("ontology_sector") or fallback.ontology_sector,
+                    ontology_subdomain=data.get("ontology_subdomain") or fallback.ontology_subdomain,
+                    line_of_business=data.get("line_of_business") or fallback.line_of_business,
+                    insight_level=data.get("insight_level") or fallback.insight_level,
+                    complexity=float(data.get("complexity") or fallback.complexity),
+                    summary=data.get("summary") or fallback.summary,
+                    kpis=kpis,
+                    tables=[TableResult(name=t.get("name")) for t in data.get("tables", []) if isinstance(t, dict) and "name" in t] or fallback.tables,
+                    is_real_ai=True
+                )
+
             sector, subdomain = normalize_scope(
                 getattr(result, "ontology_sector", None),
                 getattr(result, "ontology_subdomain", None),
@@ -216,7 +263,6 @@ Calculated Field Formulas: {formulas}
         except Exception as e:
             import traceback
             print(f"--- AI CALL FAILED in DashboardClassificationAgent.classify ---\n{e}")
-            # Fallback to rule-based classification if OpenAI calls fail (e.g. invalid key or network)
             return self._generate_fallback(dashboard_name, worksheets, datasources, formulas)
 
 class AreaDescriptionResult(BaseModel):

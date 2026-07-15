@@ -21,10 +21,10 @@ from app.services.rationalization.scoring import (
 
 
 class MockCache:
-    def get(self, lineage, aggregation, *args, **kwargs):
+    def get(self, *args, **kwargs):
         return None
 
-    def set(self, lineage, aggregation, result, **kwargs):
+    def set(self, *args, **kwargs):
         pass
 
     def flush(self):
@@ -142,7 +142,7 @@ def test_phase2_all_candidates_in_slice():
         embedding_fn=lambda t: tuple(kpi_emb),
     )
     candidates = get_last_phase3_candidates()
-    assert len(candidates) == 10
+    assert len(candidates) == 5  # top-N candidates (PHASE3_TOP_N_CANDIDATES)
     assert "Candidates:" in llm.last_prompt
 
 
@@ -240,17 +240,17 @@ def test_cache_invalidation():
     db = MagicMock()
     cache1 = OntologyCache(db, ontology_version="v1")
     cache2 = OntologyCache(db, ontology_version="v2")
-    key1 = cache1._make_key(["Sales.Amount"], "SUM")
-    key2 = cache2._make_key(["Sales.Amount"], "SUM")
+    key1 = cache1._make_key("dummy", ["Sales.Amount"], "SUM")
+    key2 = cache2._make_key("dummy", ["Sales.Amount"], "SUM")
     assert key1 != key2
 
 
 def test_cache_key_includes_scope():
     db = MagicMock()
     cache = OntologyCache(db)
-    k1 = cache._make_key(["Sales.Amount"], "SUM", "insurance", "claims_litigation")
-    k2 = cache._make_key(["Sales.Amount"], "SUM", "insurance", "underwriting")
-    k3 = cache._make_key(["Sales.Amount"], "SUM", "banking", "retail")
+    k1 = cache._make_key("dummy", ["Sales.Amount"], "SUM", "insurance", "claims_litigation")
+    k2 = cache._make_key("dummy", ["Sales.Amount"], "SUM", "insurance", "underwriting")
+    k3 = cache._make_key("dummy", ["Sales.Amount"], "SUM", "banking", "retail")
     assert k1 != k2
     assert k1 != k3
 
@@ -547,3 +547,284 @@ def test_persist_pairwise_scores():
     persist_pairwise(db, "1", "2", layers, 0.5, "functional_overlap")
     assert db.add.called
     assert db.commit.called
+
+
+def test_ontology_logging_activities():
+    import os
+    import math
+    log_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    log_path = os.path.join(log_dir, "ontology_process.log")
+    
+    if os.path.exists(log_path):
+        try:
+            os.remove(log_path)
+        except Exception:
+            pass
+            
+    # Phase 1 log test
+    kpis = [{"kpi_id": "k1", "name": "Net Revenue", "aliases": ["Revenue"], "definition": "Revenue"}]
+    match_kpi_to_ontology(
+        kpi=ExtractedKPI(name="Net Revenue", resolved_lineage=[], aggregation_type="SUM"),
+        ontology_kpis=kpis,
+        cache=MockCache(),
+        llm=None,
+    )
+    
+    assert os.path.exists(log_path)
+    with open(log_path, "r", encoding="utf-8") as f:
+        content_p1 = f.read()
+        
+    assert "TARGET KPI: 'Net Revenue'" in content_p1
+    assert "PHASE 1: EXACT & ALIAS MATCHING" in content_p1
+    assert "FINAL DECISION" in content_p1
+    assert "Matched Canonical KPI ID: k1" in content_p1
+    
+    # Clean file for Phase 2/3 test
+    try:
+        os.remove(log_path)
+    except Exception:
+        pass
+        
+    # Phase 2 & 3 log test
+    ontology = []
+    kpi_emb = [1.0] + [0.0] * 127
+    for i in range(3):
+        sim_target = 0.60
+        emb = [math.sqrt(sim_target)] + [math.sqrt(1 - sim_target)] + [0.0] * 126
+        ontology.append({
+            "kpi_id": f"k{i}",
+            "name": f"KPI {i}",
+            "aliases": [],
+            "definition": f"Def {i}",
+            "aggregation_type": "SUM",
+            "representative_lineage": [],
+            "embedding": emb,
+        })
+
+    llm = MockLLM()
+    match_kpi_to_ontology(
+        kpi=ExtractedKPI(name="Unknown KPI XYZ", resolved_lineage=["X"], aggregation_type="SUM"),
+        ontology_kpis=ontology,
+        cache=MockCache(),
+        llm=llm,
+        embedding_fn=lambda t: tuple(kpi_emb),
+    )
+    
+    assert os.path.exists(log_path)
+    with open(log_path, "r", encoding="utf-8") as f:
+        content_p23 = f.read()
+        
+    assert "TARGET KPI: 'Unknown KPI XYZ'" in content_p23
+    assert "PHASE 2: EMBEDDING SIMILARITY FILTER" in content_p23
+    assert "PHASE 3: LLM JUDGE DECISION" in content_p23
+    assert "Candidates sent to LLM:" in content_p23
+    assert "LLM Prompt:" in content_p23
+    assert "LLM Response:" in content_p23
+    assert "FINAL DECISION" in content_p23
+    
+    try:
+        os.remove(log_path)
+    except Exception:
+        pass
+
+
+def test_is_non_kpi_filtering():
+    from app.services.ontology.kpi_extractor import _is_non_kpi
+    
+    # Generic names
+    assert _is_non_kpi("LAST") is True
+    assert _is_non_kpi("One") is True
+    assert _is_non_kpi("disable highlighting") is True
+    
+    # Formulas matching patterns
+    assert _is_non_kpi("constant_val", "1") is True
+    assert _is_non_kpi("constant_val2", " 0 ") is True
+    assert _is_non_kpi("table_calc", "LAST()") is True
+    assert _is_non_kpi("table_calc2", "INDEX()") is True
+    assert _is_non_kpi("filter_bool", "[Incident State] = [Parameter 7]") is True
+    assert _is_non_kpi("filter_bool2", "[Region] = 'All'") is True
+    assert _is_non_kpi("date_helper", "YEAR([Open Date])") is True
+    assert _is_non_kpi("parameter_ref", "[Parameter 1]") is True
+    
+    # Legitimate formulas should not be filtered
+    assert _is_non_kpi("Total Paid", "SUM([Amount])") is False
+    assert _is_non_kpi("Avg Settlement Time", "AVG(DATEDIFF('day', [Open Date], [Close Date]))") is False
+
+
+def test_fuzzy_name_matching_typos():
+    from app.services.ontology.ontology_service import _fuzzy_name_match, _phase1_match
+    
+    # Verify SequenceMatcher threshold ratio
+    assert _fuzzy_name_match("Total Insurance Policues", "Total Insurance Policies") is True
+    assert _fuzzy_name_match("Loss Ratio", "Lost Ratio") is True
+    assert _fuzzy_name_match("Loss Ratio", "Total Policy Count") is False
+    
+    # Verify _phase1_match leverages fuzzy match
+    kpis = [{"kpi_id": "k1", "name": "Total Insurance Policies", "aliases": [], "definition": "policies"}]
+    result = _phase1_match(
+        kpi=ExtractedKPI(name="Total Insurance Policues", resolved_lineage=[], aggregation_type="SUM"),
+        ontology_kpis=kpis,
+        indexes=None,
+    )
+    assert result is not None
+    assert result["matched_kpi_id"] == "k1"
+    assert result["confidence_rationale"] == "Phase 1 fuzzy match"
+    assert result["similarity_score"] == 0.95
+
+
+def test_llm_json_fallback_extraction():
+    # We will invoke match_kpi_to_ontology with a MockLLM that returns markdown-wrapped JSON to test parsing
+    import math
+    
+    class MarkdownMockLLM:
+        def invoke(self, prompt):
+            # Returns JSON inside conversational text
+            content = """To determine if this maps, we compare.
+```json
+{
+  "matched_kpi_id": "k2",
+  "similarity_score": 0.85,
+  "confidence_score": 0.80,
+  "rationale": "Matches conceptually"
+}
+```
+Hope this helps!"""
+            return MagicMock(content=content)
+            
+    ontology = []
+    kpi_emb = [1.0] + [0.0] * 127
+    for i in range(2):
+        sim_target = 0.60
+        emb = [math.sqrt(sim_target)] + [math.sqrt(1 - sim_target)] + [0.0] * 126
+        ontology.append({
+            "kpi_id": f"k{i}",
+            "name": f"KPI {i}",
+            "aliases": [],
+            "definition": f"Def {i}",
+            "aggregation_type": "SUM",
+            "representative_lineage": [],
+            "embedding": emb,
+        })
+        
+    result = match_kpi_to_ontology(
+        kpi=ExtractedKPI(name="Unknown KPI XYZ", resolved_lineage=["X"], aggregation_type="SUM"),
+        ontology_kpis=ontology,
+        cache=MockCache(),
+        llm=MarkdownMockLLM(),
+        embedding_fn=lambda t: tuple(kpi_emb),
+    )
+    
+    assert result["matched_kpi_id"] == "k2"
+    assert result["similarity_score"] == 0.85
+    assert result["confidence_score"] == 0.80
+    assert result["similarity_rationale"] == "Matches conceptually"
+    assert "fallback" in result["confidence_rationale"]
+
+
+def test_raw_column_ref_filtering():
+    from app.services.ontology.kpi_extractor import _is_raw_column_ref
+    assert _is_raw_column_ref("[Claim Paid Amount]") is True
+    assert _is_raw_column_ref("  [Agent]  ") is True
+    assert _is_raw_column_ref("SUM([Amount])") is False
+    assert _is_raw_column_ref("[Field1] + [Field2]") is False
+    assert _is_raw_column_ref(None) is False
+    assert _is_raw_column_ref("") is False
+
+
+def test_switcher_deconstruction():
+    from app.services.ontology.kpi_extractor import _deconstruct_switcher
+    
+    calc_map = {
+        "total paid (closed)  mtd   (current month)": {
+            "name": "Total Paid (Closed) MTD (Current Month)",
+            "formula": "SUM(IF YEAR([Close Date]) = [Y] AND MONTH([Close Date]) = [M] THEN [_Total Paid] END)",
+            "lineage": ["Close Date", "_Total Paid"],
+            "aggregation": "SUM",
+        },
+        "total paid (closed)  ytd  (current year)": {
+            "name": "Total Paid (Closed) YTD (Current Year)",
+            "formula": "SUM(IF YEAR([Close Date]) = [Y] THEN [_Total Paid] END)",
+            "lineage": ["Close Date", "_Total Paid"],
+            "aggregation": "SUM",
+        },
+        "_total paid": {
+            "name": "_Total Paid",
+            "formula": "[Claim Paid Amount]",
+            "lineage": ["Claim Paid Amount"],
+            "aggregation": "NONE",
+        },
+    }
+
+    switcher_formula = """CASE [LinPack_371749732845320988]
+WHEN "CM_vs_PM" THEN [Total Paid (Closed)  MTD   (Current Month)]
+WHEN "CYTD_vs_PYTD" THEN [Total Paid (Closed)  YTD  (Current Year)]
+WHEN "NONE" THEN NULL
+END"""
+
+    results = _deconstruct_switcher(
+        switcher_formula, calc_map, "ws1", "Worksheet 1",
+        mark_type="Bar", parent_name="Total Paid Perf. - Value",
+    )
+    
+    names = {r.name for r in results}
+    assert "Total Paid (Closed) MTD (Current Month)" in names
+    assert "Total Paid (Closed) YTD (Current Year)" in names
+    # Raw column ref (_Total Paid = [Claim Paid Amount]) should NOT be included
+    assert "_Total Paid" not in names
+    for r in results:
+        assert r.is_dynamic is True
+        assert r.extraction_method == "switcher_component"
+        assert "switcher" in r.source_description.lower()
+
+
+def test_empty_worksheet_hiding():
+    """Worksheets with zero KPIs after filtering should be excluded from output."""
+    from app.services.ontology.kpi_extractor import extract_kpis_per_worksheet
+
+    class FakeCalcField:
+        def __init__(self, name, formula):
+            self.name = name
+            self.caption = name
+            self.formula = formula
+            self.datatype = "integer"
+    
+    class FakeDS:
+        name = "ds1"
+        caption = "DS1"
+        version = "1.0"
+        tables = []
+        columns = []
+        joins = []
+        calculated_fields = [
+            FakeCalcField("LAST", "LAST()"),
+            FakeCalcField("INDEX", "INDEX()"),
+        ]
+
+    class FakeWS:
+        def __init__(self, name, calc_fields):
+            self.name = name
+            self.used_calculated_fields = calc_fields
+            self.rows = []
+            self.columns = []
+            self.filters_and_marks = []
+            self.mark_type = None
+            self.measure_bindings = []
+    
+    class FakeDB:
+        name = "Dashboard1"
+        worksheets = ["Sheet1"]
+
+    class FakeWorkbook:
+        source_file = "test.twb"
+        datasources = [FakeDS()]
+        worksheets = [FakeWS("Sheet1", ["LAST", "INDEX"])]
+        dashboards = [FakeDB()]
+        _col_to_table_map = {}
+    
+    class FakeWSRow:
+        id = 1
+        name = "Sheet1"
+
+    result = extract_kpis_per_worksheet(FakeWorkbook(), {}, worksheet_db_rows=[FakeWSRow()])
+    # Sheet1 should be hidden because all its KPIs were filtered out
+    assert "Sheet1" not in result

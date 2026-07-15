@@ -9,7 +9,7 @@ class ColumnMetadata(BaseModel):
 
 class CalculatedFieldMetadata(BaseModel):
     name: str
-    caption: Optional[str]
+    caption: Optional[str] = None
     formula: str
     datatype: str
 
@@ -29,8 +29,8 @@ class JoinRelationship(BaseModel):
 
 class DatasourceMetadata(BaseModel):
     name: str
-    caption: Optional[str]
-    version: Optional[str]
+    caption: Optional[str] = None
+    version: Optional[str] = None
     tables: List[TableMetadata] = []
     columns: List[ColumnMetadata] = []
     calculated_fields: List[CalculatedFieldMetadata] = []

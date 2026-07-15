@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Float, Text, DateTime, LargeBinary, Index, UniqueConstraint
+from sqlalchemy import Column, String, Float, Text, DateTime, LargeBinary, Index, UniqueConstraint, Boolean
 from datetime import datetime
 from app.db.session import Base
 
@@ -62,6 +62,7 @@ class ReportKPIMapping(Base):
     model_used = Column(String, nullable=True)
     ontology_version = Column(String, nullable=True)
     computed_at = Column(DateTime, default=datetime.utcnow)
+    is_dynamic = Column(Boolean, default=False)
 
 
 Index(
@@ -71,6 +72,21 @@ Index(
     ReportKPIMapping.report_kpi_name,
     unique=True,
 )
+
+
+class ReportKPILineageMetadata(Base):
+    """Stores base field associations for KPIs (many-to-many).
+
+    Used to track which raw database columns a KPI depends on,
+    without cluttering the main KPI catalog.
+    """
+    __tablename__ = "report_kpi_lineage_metadata"
+
+    id = Column(String, primary_key=True)
+    report_kpi_mapping_id = Column(String, nullable=False, index=True)
+    base_field_name = Column(String, nullable=False)
+    formula = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class KPIOntologyCache(Base):

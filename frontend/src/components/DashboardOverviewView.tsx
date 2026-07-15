@@ -1,6 +1,6 @@
 import { API_BASE_URL } from '@/config';
 import React, { useMemo, useState, useEffect } from 'react';
-import { LayoutDashboard, Filter, ChevronDown, Check, FolderOpen, Sparkles, FileSpreadsheet, Calculator, Table, ArrowRight, BarChart2, Database } from 'lucide-react';
+import { LayoutDashboard, Filter, ChevronDown, Check, FolderOpen, Sparkles, FileSpreadsheet, Calculator, Table, ArrowRight, BarChart2, Database, Brain, CheckCircle2, XCircle, Search, AlertTriangle } from 'lucide-react';
 import { getWorkbookAreaId, AREAS } from './BusinessAreasView';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 
@@ -254,7 +254,6 @@ export function DashboardOverviewView({
     const worksheets: any[] = [];
     const allCalcFields: any[] = [];
     const allTables: any[] = [];
-    const allKPIs: any[] = [];
 
     Array.from(uniqueWorkbooks).forEach((wb: any) => {
       if (wb.worksheets) {
@@ -272,22 +271,62 @@ export function DashboardOverviewView({
       }
     });
 
-    displayedDashboards.forEach(d => {
-      const workbookBaseName = d.workbook.source_file?.split(/[/\\]/).pop() || d.workbook.source_file;
-      const aiDb = aiSummariesMap[workbookBaseName]?.dashboards?.find((a: any) => a.name === d.name);
-      if (aiDb?.kpis) {
-        aiDb.kpis.forEach((kpi: any) => allKPIs.push({ ...kpi, dashboardName: d.name, workbookName: d.workbook.source_file }));
-      }
-    });
-
     return {
       workbooks: Array.from(uniqueWorkbooks),
       worksheets,
       calcFields: allCalcFields,
       tables: allTables,
-      kpis: allKPIs
     };
-  }, [displayedDashboards, aiSummariesMap]);
+  }, [displayedDashboards]);
+
+  // Ontology matching data — fetch per unique workbook, aggregate
+  const [ontologyDataMap, setOntologyDataMap] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    const uniqueWbNames = new Set<string>();
+    displayedDashboards.forEach(d => {
+      const wbName = d.workbook.source_file?.split(/[/\\]/).pop() || d.workbook.source_file;
+      if (wbName) uniqueWbNames.add(wbName);
+    });
+
+    Array.from(uniqueWbNames).forEach(wbName => {
+      if (ontologyDataMap[wbName]) return;
+      fetch(`${API_BASE_URL}/api/v1/ontology/workbook/${encodeURIComponent(wbName)}/kpis`)
+        .then(r => r.json())
+        .then(data => {
+          setOntologyDataMap(prev => ({ ...prev, [wbName]: data }));
+        })
+        .catch(() => {});
+    });
+  }, [displayedDashboards]);
+
+  // Aggregate ontology mappings across displayed dashboards
+  const { ontologyMappings, ontologySummary } = useMemo(() => {
+    const mappings: any[] = [];
+    let total = 0, mapped = 0, review = 0, notFound = 0;
+
+    const displayedDashIds = new Set(displayedDashboards.map(d => d.id || d.name));
+
+    Object.values(ontologyDataMap).forEach((data: any) => {
+      (data.dashboards || []).forEach((dash: any) => {
+        // Filter to only displayed dashboards
+        if (!displayedDashIds.has(dash.dashboard_id) && !displayedDashIds.has(dash.dashboard_name)) return;
+        (dash.items || []).forEach((item: any) => {
+          mappings.push({ ...item, dashboardName: dash.dashboard_name });
+          total++;
+          const s = item.mapping_status || '';
+          if (['auto_accepted', 'human_accepted', 'promoted'].includes(s)) mapped++;
+          else if (s === 'pending_review') review++;
+          else if (s === 'not_found') notFound++;
+        });
+      });
+    });
+
+    return {
+      ontologyMappings: mappings,
+      ontologySummary: { total, mapped, review, not_found: notFound, ontology_score: total > 0 ? mapped / total : 0 },
+    };
+  }, [ontologyDataMap, displayedDashboards]);
 
   return (
     <div className="flex-1 overflow-auto bg-background p-8">
@@ -350,10 +389,10 @@ export function DashboardOverviewView({
             onClick={() => setActiveTab('dashboards')}
           />
           <KPICard
-            icon={<Sparkles />}
+            icon={<Brain />}
             title="KPI"
-            value={filteredAssets.kpis.length}
-            subtitle="AI Extracted KPIs"
+            value={ontologySummary.total}
+            subtitle="Ontology Matched"
             color="bg-indigo-500/15 text-indigo-400"
             isActive={activeTab === 'kpis'}
             onClick={() => setActiveTab('kpis')}
@@ -549,56 +588,119 @@ export function DashboardOverviewView({
           </div>
         )}
 
-        {/* TAB: KPIs */}
+        {/* TAB: KPIs — Ontology Matching Results */}
         {activeTab === 'kpis' && (
           <Card className="animate-in fade-in duration-300">
             <CardHeader className="border-b border-border pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-indigo-500" />
-                  Key Performance Indicators (LLM Extracted)
+                  <Brain className="w-5 h-5 text-indigo-500" />
+                  KPI Ontology Matching
                 </CardTitle>
-                <span className="text-xs text-muted-foreground">{filteredAssets.kpis.length} total</span>
+                <span className="text-xs text-muted-foreground">{ontologySummary.total} total</span>
               </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              {filteredAssets.kpis.length > 0 ? (
-                <div className="space-y-6">
-                  {filteredAssets.kpis.map((kpi: any, idx: number) => (
-                    <div key={idx} className="p-5 rounded-xl border border-indigo-500/20 bg-indigo-500/5 flex flex-col gap-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-lg font-bold text-indigo-400">{kpi.name}</h4>
-                          <span className="px-2 py-0.5 rounded text-[10px] bg-primary/10 text-primary border border-primary/20">
-                            {kpi.dashboardName}
-                          </span>
-                        </div>
-                        <span className="text-xs font-semibold px-2 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                          Confidence: {kpi.confidence}%
-                        </span>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-                        <div className="bg-background rounded-lg p-3 border border-border/50">
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Source</p>
-                          <p className="text-sm text-foreground/90">{kpi.source_description || 'Extracted from dashboard metadata.'}</p>
-                        </div>
-                        <div className="bg-background rounded-lg p-3 border border-border/50">
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Calculation Logic</p>
-                          <p className="text-sm text-foreground/90">{kpi.calculation_logic || 'Standard aggregation.'}</p>
-                        </div>
-                        <div className="bg-background rounded-lg p-3 border border-border/50">
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Definition</p>
-                          <p className="text-sm text-foreground/90">{kpi.definition || 'Key business metric.'}</p>
-                        </div>
-                      </div>
+              {ontologySummary.total > 0 && (
+                <div className="mt-4 flex items-center gap-6">
+                  <div className="flex items-center gap-4 text-xs">
+                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> {ontologySummary.mapped} Mapped
+                    </span>
+                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">
+                      <Search className="w-3.5 h-3.5" /> {ontologySummary.review} Review
+                    </span>
+                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 font-semibold">
+                      <XCircle className="w-3.5 h-3.5" /> {ontologySummary.not_found} Not Found
+                    </span>
+                  </div>
+                  <div className="ml-auto flex items-center gap-2">
+                    <span className="text-xs font-semibold text-muted-foreground">Ontology Score</span>
+                    <div className="w-24 h-2 rounded-full bg-muted overflow-hidden">
+                      <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${Math.round(ontologySummary.ontology_score * 100)}%` }} />
                     </div>
-                  ))}
+                    <span className="text-xs font-bold text-primary">{Math.round(ontologySummary.ontology_score * 100)}%</span>
+                  </div>
+                </div>
+              )}
+            </CardHeader>
+            <CardContent className="p-0">
+              {ontologyMappings.length > 0 ? (
+                <div>
+                  <div className="grid grid-cols-12 px-6 py-3 bg-muted/30 border-b border-border text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <span className="col-span-3">Report KPI</span>
+                    <span className="col-span-2">Worksheet</span>
+                    <span className="col-span-3">Canonical KPI</span>
+                    <span className="col-span-1 text-center">Similarity</span>
+                    <span className="col-span-1 text-center">Confidence</span>
+                    <span className="col-span-2 text-center">Status</span>
+                  </div>
+                  <div className="divide-y divide-border">
+                    {ontologyMappings.map((m: any, idx: number) => {
+                      const status = m.mapping_status || '';
+                      const isAccepted = ['auto_accepted', 'human_accepted', 'promoted'].includes(status);
+                      const isReview = status === 'pending_review';
+                      const isNotFound = status === 'not_found';
+                      return (
+                        <div key={idx} className="grid grid-cols-12 px-6 py-3.5 items-center hover:bg-accent/30 transition-colors text-sm">
+                          <div className="col-span-3">
+                            <p className="font-semibold text-foreground truncate">{m.report_kpi_name}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{m.dashboardName}</p>
+                          </div>
+                          <div className="col-span-2">
+                            <span className="text-xs text-muted-foreground truncate block">{m.worksheet_name || '—'}</span>
+                          </div>
+                          <div className="col-span-3">
+                            {m.canonical_kpi ? (
+                              <div>
+                                <p className="font-medium text-indigo-400 truncate">{m.canonical_kpi.name}</p>
+                                <p className="text-[10px] text-muted-foreground truncate">{m.canonical_kpi.subdomain?.replace(/_/g, ' ')}</p>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground/50 italic">No match</span>
+                            )}
+                          </div>
+                          <div className="col-span-1 text-center">
+                            {m.similarity_score != null ? (
+                              <span className={`text-xs font-mono font-bold ${m.similarity_score >= 0.8 ? 'text-emerald-400' : m.similarity_score >= 0.5 ? 'text-amber-400' : 'text-red-400'}`}>
+                                {(m.similarity_score * 100).toFixed(0)}%
+                              </span>
+                            ) : <span className="text-muted-foreground/40">—</span>}
+                          </div>
+                          <div className="col-span-1 text-center">
+                            {m.confidence_score != null ? (
+                              <span className={`text-xs font-mono font-bold ${m.confidence_score >= 0.8 ? 'text-emerald-400' : m.confidence_score >= 0.5 ? 'text-amber-400' : 'text-red-400'}`}>
+                                {(m.confidence_score * 100).toFixed(0)}%
+                              </span>
+                            ) : <span className="text-muted-foreground/40">—</span>}
+                          </div>
+                          <div className="col-span-2 flex justify-center">
+                            {isAccepted && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+                                <CheckCircle2 className="w-3 h-3" /> Mapped
+                              </span>
+                            )}
+                            {isReview && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/20">
+                                <AlertTriangle className="w-3 h-3" /> Review
+                              </span>
+                            )}
+                            {isNotFound && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/15 text-red-400 border border-red-500/20">
+                                <XCircle className="w-3 h-3" /> Not Found
+                              </span>
+                            )}
+                            {!isAccepted && !isReview && !isNotFound && (
+                              <span className="text-[10px] text-muted-foreground">{status || '—'}</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-12">
-                  <Sparkles className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground italic">No KPIs found matching your filters.</p>
+                  <Brain className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground italic">No ontology KPI mappings found. Run the ontology extraction pipeline from the dashboard detail view.</p>
                 </div>
               )}
             </CardContent>

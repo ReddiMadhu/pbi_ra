@@ -84,6 +84,19 @@ async def lifespan(app: FastAPI):
         except Exception:
             pass
 
+    # Auto-seed curated KPIs if database table is empty
+    try:
+        from app.db.session import SessionLocal
+        from app.db.seeds.seeder import seed_ontology_kpis
+        db_sess = SessionLocal()
+        try:
+            seed_ontology_kpis(db_sess)
+        finally:
+            db_sess.close()
+    except Exception as seed_err:
+        import logging
+        logging.getLogger(__name__).error("Lifespan startup seeder failed: %s", seed_err)
+
     yield
 
 app = FastAPI(

@@ -252,40 +252,10 @@ def run_governance_workflow(
         state = _assess_risks(state)
         state = _generate_recommendations(state)
 
-        # Determine user groups from usergroup.xlsx
-        user_groups_from_excel = []
-        try:
-            import pandas as pd
-            import os
-            excel_path = os.path.join(os.path.dirname(__file__), "../../../usergroup.xlsx")
-            if os.path.exists(excel_path):
-                df = pd.read_excel(excel_path, header=None)
-                wb_base_name = workbook.source_file.replace('.twbx', '').replace('.twb', '')
-                db_name_lower = db_meta.name.strip().lower()
-                
-                import re, difflib
-                def normalize(s): return re.sub(r'[^a-z0-9]', '', str(s).lower())
-                norm_db = normalize(db_name_lower)
-                norm_wb = normalize(wb_base_name)
-                
-                # Find row matching wb_base_name or db_name_lower via fuzzy match
-                matched_row = None
-                for idx, row_val in enumerate(df.iloc[:, 0]):
-                    norm_val = normalize(row_val)
-                    if not norm_val: continue
-                    ratio_db = difflib.SequenceMatcher(None, norm_db, norm_val).ratio() if norm_db else 0
-                    ratio_wb = difflib.SequenceMatcher(None, norm_wb, norm_val).ratio() if norm_wb else 0
-                    if (norm_db and (norm_db == norm_val or ratio_db > 0.85)) or \
-                       (norm_wb and (norm_wb == norm_val or ratio_wb > 0.85)):
-                        matched_row = df.iloc[idx:idx+1]
-                        break
-                
-                if matched_row is not None and not matched_row.empty:
-                    # Collect groups from column 3 onwards, ignoring NaNs
-                    groups = matched_row.iloc[0, 2:].dropna().tolist()
-                    user_groups_from_excel = [str(g).strip() for g in groups if str(g).strip()]
-        except Exception as e:
-            print(f"Failed to read usergroup.xlsx: {e}")
+        # Determine user groups from usergroup.xlsx (shared cached utility)
+        from app.services.user_groups import lookup_user_group
+        excel_data = lookup_user_group(db_meta.name, workbook.source_file)
+        user_groups_from_excel = excel_data.get("groups", []) if excel_data else []
 
         # Persist results to SQLite
         dashboard_record = db_session.query(Dashboard).filter(Dashboard.id == db_id).first()

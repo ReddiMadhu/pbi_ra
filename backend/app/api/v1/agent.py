@@ -22,29 +22,7 @@ from app.services.rationalization.pipeline import (
     compute_pair_layers,
     persist_pairwise_scores,
 )
-def get_user_group_mapping():
-    import pandas as pd
-    mapping = {}
-    excel_path = os.path.join(os.path.dirname(__file__), "../../../usergroup.xlsx")
-    if os.path.exists(excel_path):
-        try:
-            df = pd.read_excel(excel_path, header=None)
-            for _, row in df.iterrows():
-                dash_name = str(row.iloc[0]).strip().lower()
-                
-                try:
-                    days_ago = int(float(row.iloc[1]))
-                except:
-                    days_ago = None
-                    
-                groups = [str(g).strip() for g in row.iloc[2:].dropna().tolist() if str(g).strip()]
-                mapping[dash_name] = {
-                    "days_ago": days_ago,
-                    "groups": groups
-                }
-        except Exception as e:
-            pass
-    return mapping
+from app.services.user_groups import get_user_group_mapping, lookup_user_group
 def clean_text(s: str) -> str:
     s = re.sub(r"\s*\(Table\s*-\s*[^\)]+\)", "", s, flags=re.IGNORECASE)
     s = re.sub(r"\s*\([^\)]+\)", "", s)
@@ -508,7 +486,9 @@ def get_recommendations(db: Session = Depends(get_db)):
         user_groups = excel_data.get("groups") or []
         days_ago = excel_data.get("days_ago")
         if days_ago is None:
-            days_ago = 120 # moderate default
+            # Fix #10: Default to 365 (stale) instead of 120 (moderate)
+            # so dashboards NOT in usergroup.xlsx are conservatively flagged
+            days_ago = 365
         # Parse KPIs
         kpis = []
         kpi_defs = {}

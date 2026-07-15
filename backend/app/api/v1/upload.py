@@ -18,17 +18,31 @@ from app.models.postgres import (
     CalculatedField, DatasourceModel, TableModel, TableJoin, GovernanceRisk
 )
 from app.models.ontology import ReportKPIMapping, OntologyKPI, KPIOntologyCache
+from app.models.rationalization import (
+    ReportFingerprint, PairwiseScore, Cluster, ContentMigrationTask,
+    Explanation, ScoreDetail, MeasureEquivalence, GovernanceFlag
+)
 
 router = APIRouter()
 
 @router.post("/clear")
 async def clear_database(db: Session = Depends(get_db)):
-    """Clears session data but preserves the curated Ontology KPI Bank."""
+    """Clears all session and rationalization data but preserves the curated Ontology KPI Bank."""
+    # Preserved: OntologyKPI
+    
+    # 1. Clear rationalization tables
+    db.query(ReportFingerprint).delete()
+    db.query(PairwiseScore).delete()
+    db.query(Cluster).delete()
+    db.query(ContentMigrationTask).delete()
+    db.query(Explanation).delete()
+    db.query(ScoreDetail).delete()
+    db.query(MeasureEquivalence).delete()
+    db.query(GovernanceFlag).delete()
+    
+    # 2. Clear session tables
     db.query(ReportKPIMapping).delete()
     db.query(KPIOntologyCache).delete()
-    # NOTE: OntologyKPI is intentionally NOT deleted here.
-    # It holds the user's uploaded/curated KPI bank which must persist
-    # across file upload sessions.
     db.query(GovernanceRisk).delete()
     db.query(CalculatedField).delete()
     db.query(Worksheet).delete()
@@ -39,11 +53,32 @@ async def clear_database(db: Session = Depends(get_db)):
     db.query(Workbook).delete()
     db.query(ScanHistory).delete()
     db.commit()
-    return {"message": "Session data cleared (Ontology Bank preserved)"}
+
+    # Clear in-memory caches
+    try:
+        from app.services.ontology.embedding_service import clear_embedding_cache
+        from app.api.v1.kpi_graph import clear_kpi_cluster_cache
+        clear_embedding_cache()
+        clear_kpi_cluster_cache()
+    except Exception:
+        pass
+
+    return {"message": "Session data cleared (Ontology Bank and caches reset)"}
 
 @router.post("/clear-all")
 async def clear_all_database(db: Session = Depends(get_db)):
     """Clears ALL data including the Ontology KPI Bank. Use only when you want a full reset."""
+    # 1. Clear rationalization tables
+    db.query(ReportFingerprint).delete()
+    db.query(PairwiseScore).delete()
+    db.query(Cluster).delete()
+    db.query(ContentMigrationTask).delete()
+    db.query(Explanation).delete()
+    db.query(ScoreDetail).delete()
+    db.query(MeasureEquivalence).delete()
+    db.query(GovernanceFlag).delete()
+    
+    # 2. Clear session tables
     db.query(ReportKPIMapping).delete()
     db.query(KPIOntologyCache).delete()
     db.query(OntologyKPI).delete()
@@ -57,7 +92,17 @@ async def clear_all_database(db: Session = Depends(get_db)):
     db.query(Workbook).delete()
     db.query(ScanHistory).delete()
     db.commit()
-    return {"message": "All data cleared including Ontology Bank"}
+
+    # Clear in-memory caches
+    try:
+        from app.services.ontology.embedding_service import clear_embedding_cache
+        from app.api.v1.kpi_graph import clear_kpi_cluster_cache
+        clear_embedding_cache()
+        clear_kpi_cluster_cache()
+    except Exception:
+        pass
+
+    return {"message": "All data cleared including Ontology Bank and caches"}
 
 class ScanRequest(BaseModel):
     directory_path: str
@@ -89,7 +134,6 @@ async def get_scans(db: Session = Depends(get_db)):
 
 @router.post("/parse", response_model=WorkbookMetadata)
 async def parse_tableau_file(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
@@ -113,18 +157,19 @@ async def parse_tableau_file(
 
         sync_metadata_to_db(metadata, db)
 
-        def _run_ontology():
-            from app.db.session import SessionLocal
+        # Fix #3 & #4: Run ontology extraction inline (same session)
+        # instead of a background task to avoid SQLite race conditions
+        # and silent exception swallowing.
+        try:
             from app.services.ontology.ontology_service import process_workbook_ontology
-            session = SessionLocal()
-            try:
-                process_workbook_ontology(metadata, session, col_to_table_map)
-            except Exception:
-                pass
-            finally:
-                session.close()
-
-        background_tasks.add_task(_run_ontology)
+            process_workbook_ontology(metadata, db, col_to_table_map)
+        except Exception as ont_err:
+            import logging
+            logging.getLogger(__name__).error(
+                "Ontology extraction failed for %s: %s",
+                file.filename, ont_err, exc_info=True,
+            )
+            # Non-fatal: file parsing succeeded, ontology will be empty
 
         new_scan = ScanHistory(
             directory_path=file.filename,

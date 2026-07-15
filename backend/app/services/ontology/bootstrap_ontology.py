@@ -19,7 +19,10 @@ def bootstrap(min_kpis: int = 30) -> int:
     db = SessionLocal()
     try:
         existing = db.query(OntologyKPI).count()
-        if existing >= min_kpis:
+        # Fix #8: Skip if ANY KPIs exist to avoid polluting a curated bank
+        # (e.g. an Excel import with < 30 entries). The old check
+        # `>= min_kpis` would auto-seed AI-inferred KPIs on top.
+        if existing > 0:
             print(f"Ontology bank already has {existing} KPIs; skipping bootstrap.")
             return existing
 

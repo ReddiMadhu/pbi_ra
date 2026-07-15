@@ -1,0 +1,2614 @@
+[
+  {
+    "kpi_id": "69af38bc-2a83-4342-94d1-8d0197d57d2a",
+    "name": "Litigation Status",
+    "definition": "The phase of the litigation workflow the given matter is in",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "LS"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "litigation_status"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.282961",
+    "status": "active"
+  },
+  {
+    "kpi_id": "1b3a19ca-2bff-428c-85a3-af37a6f7a1e0",
+    "name": "Matter Disputed Amount",
+    "definition": "Total Disputed amount across LOBs",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "MDA"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "matter_disputed"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.283617",
+    "status": "active"
+  },
+  {
+    "kpi_id": "ef4a8e65-e86c-4f8a-b038-fa8a1f68b4da",
+    "name": "Matter New Count",
+    "definition": "Count of instances of matter being created",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "MNC"
+    ],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "matter_count"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.284302",
+    "status": "active"
+  },
+  {
+    "kpi_id": "dbd5552e-0d46-45a0-8c9b-b9e7a51c5b8e",
+    "name": "Matter Reason for Litigation",
+    "definition": "The primary cause for why the matter was created",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "MRFL"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "matter_reason"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.284950",
+    "status": "active"
+  },
+  {
+    "kpi_id": "872be85d-a463-461a-b1fb-6bd9d8ddd594",
+    "name": "Matter Settlement Amount",
+    "definition": "Total settlement amount across LOBs",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "MSA"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "matter_settlement"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.285608",
+    "status": "active"
+  },
+  {
+    "kpi_id": "caeb86d2-1f30-4a69-9b08-744e26c25953",
+    "name": "Monthly Incoming Inventory",
+    "definition": "Inventory Snapshot as of End od Prior Month",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "MII"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "monthly_incoming"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.286253",
+    "status": "active"
+  },
+  {
+    "kpi_id": "9fb7b985-4c39-4d2f-a998-b5e799d8e745",
+    "name": "Overall Litigation Loss Amount",
+    "definition": "Total sum of pending or settled damnum amount for matters",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "OLLA"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "claim_amount",
+      "claim_id"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.287140",
+    "status": "active"
+  },
+  {
+    "kpi_id": "216c3666-5776-4bb0-aabb-83be49199fe1",
+    "name": "Overdue Activities",
+    "definition": "Open Activities that have surpassed their target date by over 5 days. \nDays between Activity Target Date of Open Activity and Today's date > 5 Days",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "OA"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "overdue_activities"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.287815",
+    "status": "active"
+  },
+  {
+    "kpi_id": "bad50c3e-dd90-449d-baf8-8faff0116bb2",
+    "name": "Paid Loss Per Exposure",
+    "definition": "Paid loss amount per exposure",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "PLPE"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "claim_amount",
+      "claim_id"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.288508",
+    "status": "active"
+  },
+  {
+    "kpi_id": "3ac4fed5-4a28-439f-8ae6-45ee0b505571",
+    "name": "Pending Payment",
+    "definition": "Bills posted and pending payment",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "PP"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "pending_payment"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.290748",
+    "status": "active"
+  },
+  {
+    "kpi_id": "f70e92f7-99a0-46d2-9947-c7ff6296dbab",
+    "name": "Reclose rate",
+    "definition": "rate of instances of a matter being closed after it has been reopened",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "RR",
+      "Rr Rate"
+    ],
+    "aggregation_type": "PCT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "reclose_rate"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.292406",
+    "status": "active"
+  },
+  {
+    "kpi_id": "c9b43a0c-527f-4122-89c1-a59186f8cb6d",
+    "name": "Referral Rate",
+    "definition": "Number of referrals sent through manual or proactive sources by number of referrals created by LOB",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "RR",
+      "Rr Rate"
+    ],
+    "aggregation_type": "PCT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "referral_rate"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.293331",
+    "status": "active"
+  },
+  {
+    "kpi_id": "c0af8b5a-0a4b-4cab-9e30-fe29b29e54c1",
+    "name": "Remaining Policy Limits",
+    "definition": "total amount left to be paid according to the policy limit",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "RPL"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "policy_id",
+      "remaining_policy"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.294134",
+    "status": "active"
+  },
+  {
+    "kpi_id": "49546bdf-40b9-490b-8728-70177f0ed320",
+    "name": "Reopen Rate",
+    "definition": "Count of reopen claims within few days of initial claim closure as a % of closed claims.",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "RR",
+      "Rr Rate"
+    ],
+    "aggregation_type": "PCT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "reopen_rate"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.294897",
+    "status": "active"
+  },
+  {
+    "kpi_id": "43646758-1843-4c0b-92dc-237c81d457d9",
+    "name": "Reserve Accuracy",
+    "definition": "At the exposure level, compares the reserve to the total paid at the time the claim is 1st closed. Excludes Subro recoveries\nIf initial reserve is +/- 10% of total paid at 1st closure, the initial reserve is considered accurate. If the initial reserve is $2, or $3 and total paid is zero, initial reserve is considered accurate.",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "RA"
+    ],
+    "aggregation_type": "PCT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "reserve_accuracy"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.295619",
+    "status": "active"
+  },
+  {
+    "kpi_id": "0e8e151a-05e4-48ab-8205-aa8b27517284",
+    "name": "Reserve Cycle Time",
+    "definition": "Average calendar days from report date to initial reserve",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "RCT"
+    ],
+    "aggregation_type": "AVG",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "reserve_cycle"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.296596",
+    "status": "active"
+  },
+  {
+    "kpi_id": "45883142-0eb9-4ab0-b15f-6805e16f7681",
+    "name": "Resolution Rate",
+    "definition": "Rate at which matters are resolved",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "RR",
+      "Rr Rate"
+    ],
+    "aggregation_type": "PCT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "resolution_rate"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.297328",
+    "status": "active"
+  },
+  {
+    "kpi_id": "f93111ef-ba43-4953-9ffb-de1738cd3896",
+    "name": "Settled%",
+    "definition": "The % of settled files out of all closed Subrogation files within a defined period.",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [],
+    "aggregation_type": "PCT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "settled"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.298057",
+    "status": "active"
+  },
+  {
+    "kpi_id": "c4a1e041-b177-4b59-a298-387d40875b9b",
+    "name": "SIU Acceptance Rate",
+    "definition": "No of exposures accepted by SIU for investigations",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "SAR",
+      "Sar Rate"
+    ],
+    "aggregation_type": "PCT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "acceptance_rate"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.299004",
+    "status": "active"
+  },
+  {
+    "kpi_id": "25021f56-3091-4554-968e-36a86abd2536",
+    "name": "Subro Closed without recovery 30 (%)",
+    "definition": "Percentage of Subro referrals closed without recovery with 30 days of referral",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "SCWR"
+    ],
+    "aggregation_type": "PCT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "subro_closed"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.299665",
+    "status": "active"
+  },
+  {
+    "kpi_id": "52b4f92a-dd79-4a01-9255-fb9ffbdc1d3e",
+    "name": "Avg Paid ALAE on Closed",
+    "definition": "Average allocated loss adjustment expense (like attorney fees or investigation costs) paid on all closed claims, shows the typical expense per resolved case",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "APAOC"
+    ],
+    "aggregation_type": "AVG",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "paid_alae"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.300522",
+    "status": "active"
+  },
+  {
+    "kpi_id": "cab44b00-00d5-423c-820f-20037dd4bb08",
+    "name": "#Active Arbitrations",
+    "definition": "This is the total count of unique applicant case plus the total count of unique respondent cases.",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "AA",
+      "Aa Ratio"
+    ],
+    "aggregation_type": "PCT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "active_arbitrations"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.301309",
+    "status": "active"
+  },
+  {
+    "kpi_id": "75f6f5ff-e61c-4b59-994f-827c5e4563a7",
+    "name": "% Awarded on win",
+    "definition": "This shows, for all applicant arbitration files where files has the Win-Ind='Y', the awarded $/Total Damages Requested.",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "AOW"
+    ],
+    "aggregation_type": "PCT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "awarded"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.301968",
+    "status": "active"
+  },
+  {
+    "kpi_id": "193deb3e-adf7-4a8a-9c10-5d0a76fcb7d1",
+    "name": "% Recovered on Settled",
+    "definition": "Total Recovered $/Total Paid $ (less salvage & other Recoveries) to date for settled files closed within a defined period.",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "ROS"
+    ],
+    "aggregation_type": "PCT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "recovered_settled"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.303160",
+    "status": "active"
+  },
+  {
+    "kpi_id": "817dd5b0-0209-4c00-bb0d-e04584ffd54b",
+    "name": "% Replacement Cost Change  (YTD)",
+    "definition": "% change in RCV amount from initial estimate RCV to final revision RCV",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "RCCY"
+    ],
+    "aggregation_type": "PCT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "replacement_cost"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.303892",
+    "status": "active"
+  },
+  {
+    "kpi_id": "8c3f7b69-12ee-47eb-96cc-2282b714795e",
+    "name": "Active Inventory",
+    "definition": "Loss that is currently in the process of being investigated and managed",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "AI"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "active_inventory"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.306756",
+    "status": "active"
+  },
+  {
+    "kpi_id": "60704a34-5619-4261-b259-348302aaa432",
+    "name": "Activity Level Inventory",
+    "definition": "# of Received Activities where adjuster is activity owner",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "ALI"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "activity_level"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.309114",
+    "status": "active"
+  },
+  {
+    "kpi_id": "45d21e6c-2710-4a0e-be45-eb95ead8979f",
+    "name": "Adherence",
+    "definition": "Overall system adherence",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "adherence"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.311418",
+    "status": "active"
+  },
+  {
+    "kpi_id": "5a4bfb50-bc9d-4d70-bcdd-46ec7ac61525",
+    "name": "Auto Network Shop Referal %",
+    "definition": "Appraisal Channelling distribution for GRN",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "ANSR"
+    ],
+    "aggregation_type": "PCT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "auto_network"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.313526",
+    "status": "active"
+  },
+  {
+    "kpi_id": "56243eed-d00d-4ebf-8c2a-019fbd12ed7f",
+    "name": "Avail to Plan",
+    "definition": "Calculated by looking at planned availability the week prior and comparing it to what actually happened during current week",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "ATP"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "avail_plan"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.315558",
+    "status": "active"
+  },
+  {
+    "kpi_id": "a3fbe6a8-55f7-42a7-9cd0-84ec89164684",
+    "name": "Availability",
+    "definition": "Calculating availability of IC to receive claims",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "availability"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.317592",
+    "status": "active"
+  },
+  {
+    "kpi_id": "78e4d759-2f35-4a61-b1e9-a761bb980a80",
+    "name": "Avg. Days to Release",
+    "definition": "Days between initial predicted total loss date and the pick up cleared date",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "ADTR"
+    ],
+    "aggregation_type": "AVG",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "avg_days"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.319821",
+    "status": "active"
+  },
+  {
+    "kpi_id": "6abd1df6-fc1a-4bbb-9eb9-afce956c915a",
+    "name": "Avg. Rental Days",
+    "definition": "Average Rental days for vehicles",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "ARD"
+    ],
+    "aggregation_type": "AVG",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "avg_rental"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.322149",
+    "status": "active"
+  },
+  {
+    "kpi_id": "9af2c351-af17-4866-a876-0beb70c2ce85",
+    "name": "Behavioural Aggregate",
+    "definition": "Percentage of questions that meet the expectations based on survey return date",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "BA"
+    ],
+    "aggregation_type": "PCT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "behavioural_aggregate"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.325044",
+    "status": "active"
+  },
+  {
+    "kpi_id": "73646b6a-3527-41f2-b597-553b285819db",
+    "name": "Bill Allowed Count Per Exposure",
+    "definition": "Total billed allowed count per exposure after applying reductions",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "BACPE"
+    ],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "bill_allowed"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.328174",
+    "status": "active"
+  },
+  {
+    "kpi_id": "09966718-8576-4b7e-a73a-da12cda83b55",
+    "name": "Bill Allowed Per Exposure",
+    "definition": "Billed amount per exposure after applying reductions",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "BAPE"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "bill_allowed"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.330145",
+    "status": "active"
+  },
+  {
+    "kpi_id": "a3bf7951-557c-4617-a8f2-a821313cf016",
+    "name": "Bill Charged Count per Exposure",
+    "definition": "Count of bills charged per exposure",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "BCCPE"
+    ],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "bill_charged"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.331515",
+    "status": "active"
+  },
+  {
+    "kpi_id": "6f48ba80-0e31-4d11-ac10-7bbc80abc680",
+    "name": "Bill Charged per Exposure",
+    "definition": "Bills charged amount per exposure",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "BCPE"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "bill_charged"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.332360",
+    "status": "active"
+  },
+  {
+    "kpi_id": "d834f521-2bc6-4999-9c36-97ab692da370",
+    "name": "Claim Level Inventory",
+    "definition": "Number of Open Claims where adjuster is the Claim Owner",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "CLI"
+    ],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "claim_amount",
+      "claim_id"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.333356",
+    "status": "active"
+  },
+  {
+    "kpi_id": "b964916e-3bb5-43ca-8815-c106df918c04",
+    "name": "Claim opt In",
+    "definition": "Checks if claims has opted in for a SMS service",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "COI"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "claim_amount",
+      "claim_id"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.335105",
+    "status": "active"
+  },
+  {
+    "kpi_id": "3ffc563e-5c0d-44a7-a5f6-f2e930d58c29",
+    "name": "Claim Owner Received",
+    "definition": "No of received claims where adjuster is the first assigned claim owner. Date is first claims owner assigned date",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "COR"
+    ],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "claim_amount",
+      "claim_id"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.335986",
+    "status": "active"
+  },
+  {
+    "kpi_id": "8ca40522-1666-4ad2-9a28-f169f115364d",
+    "name": "Clearly Explained, Informed, Responsiveness",
+    "definition": "Behavioural Question Scores\n\nResults are tagged to the claim owner and the most recent estimate writer at the time the survey was triggered\n\nRange: 0 - 100",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "CEIR"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "clearly_explained"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.336681",
+    "status": "active"
+  },
+  {
+    "kpi_id": "e995d9dd-6966-4fb0-a50b-16fe10b953ff",
+    "name": "Closed / FTE Day",
+    "definition": "# of assignments closed per work day per FTE",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "CFD"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "closed"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.337694",
+    "status": "active"
+  },
+  {
+    "kpi_id": "133c0311-c1f1-4ac8-bc6d-df4389efb0bf",
+    "name": "Closed Cycle Time",
+    "definition": "The number of workdays between when was the SIU activity assigned to an investigator and when activity gets completed",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "CCT"
+    ],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "closed_cycle"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.338391",
+    "status": "active"
+  },
+  {
+    "kpi_id": "39f0c683-eb98-46d1-9926-6d5e7782453c",
+    "name": "Combined Offset",
+    "definition": "It is defined as Application rate based on the average adjustment on the claim",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "CO"
+    ],
+    "aggregation_type": "AVG",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "combined_offset"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.339171",
+    "status": "active"
+  },
+  {
+    "kpi_id": "c931e8fb-34e9-4653-9e60-886b418c13a8",
+    "name": "Comparative Negligence (Comp. Neg.) Application Rate",
+    "definition": "% of exposures associated with partial insured liability decision",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "CNCNAR",
+      "Cncnar Rate"
+    ],
+    "aggregation_type": "PCT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "comparative_negligence"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.340461",
+    "status": "active"
+  },
+  {
+    "kpi_id": "dc9184b8-237b-4f74-9a18-1a3048ac60b5",
+    "name": "Complaints",
+    "definition": "Complaint Volume",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "complaints"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.342647",
+    "status": "active"
+  },
+  {
+    "kpi_id": "1232b1ba-a190-44c8-962a-ec94dc5c9211",
+    "name": "Completed",
+    "definition": "Claims completed per day in Service Power. This number should match what you see looking back in an adjuster Gantt for a given day/week/etc.",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "completed"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.344312",
+    "status": "active"
+  },
+  {
+    "kpi_id": "7b9aa357-0d12-49e2-ad39-de7da1286057",
+    "name": "CT : Report to Appraisal Assign",
+    "definition": "Average number of days between exposure assign date and initial assignment date",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "CRTAA"
+    ],
+    "aggregation_type": "AVG",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "report_appraisal"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.345951",
+    "status": "active"
+  },
+  {
+    "kpi_id": "e6925365-bd82-468d-8bbe-0a5002099d2a",
+    "name": "Current Incoming Inventory",
+    "definition": "Inventory Snapshot as of Prior Day",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "CII"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "current_incoming"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.347417",
+    "status": "active"
+  },
+  {
+    "kpi_id": "9dfba57b-6091-4fdf-9b6a-27ca19cfdea4",
+    "name": "Current Open Count",
+    "definition": "Count of current open activities",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "COC"
+    ],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "current_open"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.348730",
+    "status": "active"
+  },
+  {
+    "kpi_id": "b9348995-028e-400e-becd-6c5aa09e2a4a",
+    "name": "Cycle Time",
+    "definition": "Average time difference between two activities",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "CT"
+    ],
+    "aggregation_type": "AVG",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "cycle_time"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.350003",
+    "status": "active"
+  },
+  {
+    "kpi_id": "2c0e8b6c-69eb-4470-8205-d5926c5342de",
+    "name": "Cycle Time (Report-1st Pay)",
+    "definition": "Average number of days between Report and the date that 1st payment is made",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "CTRP"
+    ],
+    "aggregation_type": "AVG",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "cycle_time"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.351306",
+    "status": "active"
+  },
+  {
+    "kpi_id": "de1e6943-fe05-4082-a77d-7fd1a0143eab",
+    "name": "EOM Open Inventory",
+    "definition": "EOM open inventory counts i.e., counts of open inventory by last day of month",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "EOI"
+    ],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "open_inventory"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.352520",
+    "status": "active"
+  },
+  {
+    "kpi_id": "1489db8a-e116-4e56-97f0-6d25d655be78",
+    "name": "Escalations",
+    "definition": "Presidential Service Team (PST) Personal Lines Agent Escalation volume",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "escalations"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.353833",
+    "status": "active"
+  },
+  {
+    "kpi_id": "ea6c8a81-d241-427e-b5d9-9c57cf0bbf0b",
+    "name": "Exposure opt In",
+    "definition": "% exposures eligible for SMS that are sent a non-system outbound SMS to customer",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "EOI"
+    ],
+    "aggregation_type": "PCT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "exposure"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.355056",
+    "status": "active"
+  },
+  {
+    "kpi_id": "9dc9ecf8-516e-45ad-acca-1a5e3469e4ad",
+    "name": "External Transfer %",
+    "definition": "% of claims transferred out of the Job type to a different Job type",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "ET"
+    ],
+    "aggregation_type": "PCT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "external_transfer"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.357412",
+    "status": "active"
+  },
+  {
+    "kpi_id": "ab2e8c5e-eeb5-4979-875b-39c1276cf5a7",
+    "name": "Financial Headcount",
+    "definition": "Staffing/ Billed FTEs in each dept",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "FH"
+    ],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "financial_headcount"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.359058",
+    "status": "active"
+  },
+  {
+    "kpi_id": "5c11ec8d-3177-40ab-b9ad-2204541280b9",
+    "name": "Glass & Tow Caseload",
+    "definition": "Count of received activities with a list of subject names",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "GTC"
+    ],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "glass_caseload"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.360282",
+    "status": "active"
+  },
+  {
+    "kpi_id": "570bb2c4-d3f7-463f-b0ef-21c9cb13eaac",
+    "name": "Gross Return Compared to Industry (%)",
+    "definition": "Final amount compared to Industry standards",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "GRCTI"
+    ],
+    "aggregation_type": "PCT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "gross_return"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.361505",
+    "status": "active"
+  },
+  {
+    "kpi_id": "2f53ee2a-cb16-4969-87f3-888a66533ee2",
+    "name": "IA% (Independent Agents)",
+    "definition": "Appraisal Channelling distribution for IA",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "IIA"
+    ],
+    "aggregation_type": "PCT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "agent_id",
+      "call_duration_seconds",
+      "call_id"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.363019",
+    "status": "active"
+  },
+  {
+    "kpi_id": "5c536f04-51a5-43ad-826a-c09e20d8e8c8",
+    "name": "incoming Cycle Time",
+    "definition": "The number of days between when a PDL Subrogation activity or Damage Review (NAV) is opened to date of closure",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "ICT"
+    ],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "incoming_cycle"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.364194",
+    "status": "active"
+  },
+  {
+    "kpi_id": "336e0897-9e45-4128-ac2b-53b7c18a14c0",
+    "name": "Internal Transfer %",
+    "definition": "% of claims transferred to another IC within the Job type",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "IT"
+    ],
+    "aggregation_type": "PCT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "internal_transfer"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.365621",
+    "status": "active"
+  },
+  {
+    "kpi_id": "94de4832-7739-4e03-ae45-bf5ece09651e",
+    "name": "Inventory - Days Open",
+    "definition": "Days between Subro Referral Date and Current Date (Calculated like cycle time, but with open files)",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "IDO"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "inventory_days"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.367803",
+    "status": "active"
+  },
+  {
+    "kpi_id": "1f33db84-63c2-411d-91c4-5ac841d6aeb2",
+    "name": "Labor Hours Per Rental Day",
+    "definition": "Total number of labor hours per day",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "LHPRD"
+    ],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "labor_hours"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.369441",
+    "status": "active"
+  },
+  {
+    "kpi_id": "a51fe0bf-58c7-4db6-a6bb-c194e94eb74f",
+    "name": "Litigation Status Final Date",
+    "definition": "The date on which the matter status was transitioned from making the status completed",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "LSFD"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "litigation_status"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.370720",
+    "status": "active"
+  },
+  {
+    "kpi_id": "dc57baa1-6894-4428-9048-3698d8a2789c",
+    "name": "Litigation Status Initial Date",
+    "definition": "The date on which the matter status was entered",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "LSID"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "litigation_status"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.371946",
+    "status": "active"
+  },
+  {
+    "kpi_id": "ce434a0a-8e97-471d-8828-7d863342e001",
+    "name": "Manual Referral Acceptance Rate",
+    "definition": "% of claims manually referred to SIU that are accepted by SIU",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "MRAR",
+      "Mrar Rate"
+    ],
+    "aggregation_type": "PCT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "manual_referral"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.374267",
+    "status": "active"
+  },
+  {
+    "kpi_id": "709cfc99-8583-46cf-ac49-95ad20938a4c",
+    "name": "Manual Referrals",
+    "definition": "Number of claims manually referred to SIU by an IC",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "MR"
+    ],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "manual_referrals"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.375639",
+    "status": "active"
+  },
+  {
+    "kpi_id": "ded434e4-8a0e-4710-a9b1-216ce6b22e99",
+    "name": "Matter Close Date",
+    "definition": "Date on which the matter was closed",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "MCD"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "matter_close"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.376419",
+    "status": "active"
+  },
+  {
+    "kpi_id": "c1e8f52f-cdcc-4722-b7cb-59ee5678b5f4",
+    "name": "Matter Creation Date",
+    "definition": "Date on which the matter was created in navigator",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "MCD"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "matter_creation"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.377153",
+    "status": "active"
+  },
+  {
+    "kpi_id": "b52b400d-85c7-43d1-8782-daffdc337e76",
+    "name": "Matter Current Open Count",
+    "definition": "Count of matter currently in Open state",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "MCOC"
+    ],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "matter_current"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.377838",
+    "status": "active"
+  },
+  {
+    "kpi_id": "b3d06fca-0084-4183-99b9-5d2dcd8c6f5e",
+    "name": "Matter Current Open Non-Assigned Count",
+    "definition": "Count of open matters which are currently not assigned",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "MCONAC"
+    ],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "matter_current"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.378487",
+    "status": "active"
+  },
+  {
+    "kpi_id": "7671d3bc-a424-45a1-8bf3-8a78c7b8545a",
+    "name": "Matter Cycle Time : Created to First Close",
+    "definition": "Number of days between Matter creation to first close date",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "MCTCTFC"
+    ],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "matter_cycle"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.379138",
+    "status": "active"
+  },
+  {
+    "kpi_id": "2fbc9d1c-f6dd-4555-888c-d74e0a4f7cd2",
+    "name": "Matter Disputed Volume",
+    "definition": "Count of disputed matters across LOBs",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "MDV"
+    ],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "matter_disputed"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.379779",
+    "status": "active"
+  },
+  {
+    "kpi_id": "82ef3cbb-7a12-4270-bc67-dff4e055b0f4",
+    "name": "Matter First Close Count",
+    "definition": "Count of instances of a matter being closed for the first time",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "MFCC"
+    ],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "matter_first"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.380376",
+    "status": "active"
+  },
+  {
+    "kpi_id": "0ee33a80-9ef0-4e15-a73e-7ea34be5deb4",
+    "name": "Matter legal Expense Amount",
+    "definition": "Total Legal expense amount across LOBs",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "MLEA"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "matter_legal"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.381014",
+    "status": "active"
+  },
+  {
+    "kpi_id": "5ebc4c76-e15c-4414-a71b-3afeeac684cd",
+    "name": "Matter month end open count",
+    "definition": "Count of matters open at the given end-of-month date",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "MMEOC"
+    ],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "matter_month"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.381657",
+    "status": "active"
+  },
+  {
+    "kpi_id": "8d7dba82-fdf6-4738-ad4b-f6636a3a2312",
+    "name": "Matter Reopen Date",
+    "definition": "The date on which the matter was reopened",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "MRD"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "matter_reopen"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.382268",
+    "status": "active"
+  },
+  {
+    "kpi_id": "b19a783f-f8a1-4d31-9e0d-7a0fa553ab8f",
+    "name": "Matter Settlement Date",
+    "definition": "Date on which the matter is marked settled",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "MSD"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "matter_settlement"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.382890",
+    "status": "active"
+  },
+  {
+    "kpi_id": "7633242f-1a88-4b49-9392-7df00eb4b98e",
+    "name": "Matter Strategy",
+    "definition": "Overarching strategy used to resolve the matter",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "MS",
+      "Ms Rate"
+    ],
+    "aggregation_type": "PCT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "matter_strategy"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.383467",
+    "status": "active"
+  },
+  {
+    "kpi_id": "6d30dc96-07d3-4195-830f-e0c192c81e32",
+    "name": "Month End Open Count",
+    "definition": "Total open activity inventory at the end of the month",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "MEOC"
+    ],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "month_open"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.384102",
+    "status": "active"
+  },
+  {
+    "kpi_id": "cccb23ea-07ca-4dcc-83d3-20ca6deb4762",
+    "name": "Open Activities",
+    "definition": "Count of activities that are currently open [do not have a close date]",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "OA"
+    ],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "open_activities"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.384710",
+    "status": "active"
+  },
+  {
+    "kpi_id": "1985b65c-dc49-43a0-bc89-7e7556f22618",
+    "name": "Open overdue",
+    "definition": "A count of open activities with cycle time (create to yesterday) exceeding SLA",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "OO"
+    ],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "open_overdue"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.385303",
+    "status": "active"
+  },
+  {
+    "kpi_id": "ce6077b3-86dd-438c-a52d-961561fab5bb",
+    "name": "Overflow",
+    "definition": "The reason a claim did not get assigned to an adjuster in Service power. \n\nOverflow Reasons\n\u2022 De-allocated because the job overlapped a standard activity after an API call. This column is always NULL if the job is resourced (i.e. not unallocated).---API calls indicate something changed between Service Empowerment/Service Gantt/ServiceScheduler. Causes the schedule to longer fit  (could be a new std. activity)\n\u2022 De-allocated because the job spanned an operative day boundary after an API call.---API calls indicate something changed between ServiceEmpowerment/ServiceGantt/ServiceScheduler. Causes the schedule to longer fit  (could be a new std. activity)\n\u2022 De-allocated because the job spanned postings after an API call.---API calls indicate something changed between ServiceEmpowerment/ServiceGantt/ServiceScheduler. Causes the schedule to longer fit  (could be a new std. activity)\n\u2022 De-allocated because the job spanned shift pattern assignments after an API call.---API calls indicate something changed between ServiceEmpowerment/ServiceGantt/ServiceScheduler. Causes the schedule to longer fit  (could be a new std. activity)\n\u2022 De-allocated by the optimizer.---Deallocated by SP\n\u2022 Forced:  mandatory operative has no local knowledge.---Adjuster has no local knowledge\n\u2022 Forced: mandatory operative doesn\u2019t have skills.---Adjuster has no SP skills set to handle claim. Typically happens when an adjuster\u2019s skills are changed.  The claim allocates to an adjuster (or is forced) but then a skill change causes it to deallocate.\n\u2022 Forced: mandatory operative is not working.---Adjuster is unavailable. Claim gets made mandatory/confirmed but then the adjuster ends up on FTO/unavailable.\n\u2022 Forced: no operative has local knowledge.---Claim is outside local knowledge rings\n\u2022 Forced: no operative has time available.---No one is available to handle claim\n\u2022 Forced: no operative is working.---There is someone who has local knowledge for the claim, but are not working on the day claim was trying to optimize on calendar\n\u2022 Forced: no time available within access hours.---Schedule is full and cannot fit another claim\n\u2022 Manually de-allocated.---Deallocated by manager or FRM\n\u2022 Replaced by a more important job. Replaced by a more important job. This happens when a claim gets confirmed in a slot a tentative claim is scheduled.  Or a mandatory claims displaced",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "overflow"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.385954",
+    "status": "active"
+  },
+  {
+    "kpi_id": "b81447ef-fab7-4354-90ed-e4b2809ffd60",
+    "name": "PL Paid Losses",
+    "definition": "Paid losses by LOB\nThis metric is highly summarized monthly at LOB and Brand level",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "PPL"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "claim_amount",
+      "claim_id"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.386586",
+    "status": "active"
+  },
+  {
+    "kpi_id": "c9a7a55a-aa3e-478e-8bdf-8e06d66362b4",
+    "name": "Potential Restitution",
+    "definition": "Potential Recoverable amount from medical providers",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "PR"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "potential_restitution"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.387204",
+    "status": "active"
+  },
+  {
+    "kpi_id": "dfcb3e99-8321-4298-89e9-1ece82e70f53",
+    "name": "Productive Utilization",
+    "definition": "Productivity Eligible Work divided by Capacity, with a yearend benchmark of 100%",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "PU"
+    ],
+    "aggregation_type": "PCT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "productive_utilization"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.387823",
+    "status": "active"
+  },
+  {
+    "kpi_id": "b65cf132-470c-471e-9bfe-b3871554b8ac",
+    "name": "Productivity",
+    "definition": "Number of tasks completed by the Claims Assistant(s)",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [],
+    "aggregation_type": "COUNT",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "productivity"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.388435",
+    "status": "active"
+  },
+  {
+    "kpi_id": "bf1c4f93-86aa-4df6-b23a-d5412095e0a5",
+    "name": "Recorded Statements",
+    "definition": "The frequency at which recorded statement is taken for applicable Property Damage Liability and Comprehensive exposures",
+    "domain": "Claims_Litigation",
+    "sector": "insurance",
+    "subdomain": "claims_litigation",
+    "aliases": [
+      "RS"
+    ],
+    "aggregation_type": "SUM",
+    "valid_dimensions": [
+      "State",
+      "Date",
+      "Month",
+      "Year",
+      "Policy Type",
+      "Claim Type",
+      "Claim Status",
+      "Adjuster",
+      "Loss Cause"
+    ],
+    "representative_lineage": [
+      "recorded_statements"
+    ],
+    "created_by": "excel_seed",
+    "created_at": "2026-07-14 06:52:42.389750",
+    "status": "active"
+  }
+]

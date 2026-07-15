@@ -5,7 +5,49 @@ import os
 import re
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
+from pydantic import BaseModel, Field
+from difflib import SequenceMatcher
+
+class Phase3JudgeResult(BaseModel):
+    """Pydantic schema for Phase 3 LLM structured output."""
+    matched_kpi_id: Optional[str] = Field(
+        None,
+        description="The kpi_id of the best matching canonical KPI, or null if no match"
+    )
+    similarity_score: float = Field(
+        description="Semantic similarity score between 0.0 and 1.0"
+    )
+    confidence_score: float = Field(
+        description="Confidence in the match between 0.0 and 1.0"
+    )
+    rationale: str = Field(
+        description="Brief explanation of why this match was chosen or rejected"
+    )
+
+def _fuzzy_name_match(name1: str, name2: str, threshold: float = 0.85) -> bool:
+    """Check if two names are close enough to be a typo match."""
+    return SequenceMatcher(None, name1.lower(), name2.lower()).ratio() >= threshold
+
+
+def normalize_kpi_name(raw_name: str) -> str:
+    """Strip dimensional suffixes, rank prefixes, and table references
+    so the core metric name is used for matching."""
+    name = raw_name.strip()
+    # Strip "| <anything> (Table - <anything>)" table references
+    name = re.sub(r'\s*\|.*?\(Table\s*-.*?\).*$', '', name, flags=re.IGNORECASE)
+    # Strip "| Old", "| New" etc. standalone suffixes
+    name = re.sub(r'\s*\|\s*(Old|New)\b.*$', '', name, flags=re.IGNORECASE)
+    # Strip "Rank | ", "Performance Level | " prefixes
+    name = re.sub(r'^(Rank|Performance\s+Level)\s*\|\s*', '', name, flags=re.IGNORECASE)
+    # Strip "Top AGENT - " or "Top <WORD> - " prefixes
+    name = re.sub(r'^Top\s+\w+\s*[-\u2013]\s*', '', name, flags=re.IGNORECASE)
+    # Strip trailing " b" or " a" (Tableau widget suffixes like "Total Paid b")
+    name = re.sub(r'\s+[ba]$', '', name)
+    # Strip "by <Dimension>" suffixes (e.g., "Total Paid by Agent")
+    name = re.sub(r'\s+by\s+\w[\w\s]*$', '', name, flags=re.IGNORECASE)
+    return name.strip()
+
 
 from sqlalchemy.orm import Session
 
@@ -33,13 +75,95 @@ logger = logging.getLogger(__name__)
 
 MAX_PHASE3_CALLS_PER_EXTRACTION = 200
 ONTOLOGY_VERSION = "v1"
-PHASE3_MIN_CANDIDATE_SIM = 0.50
+PHASE3_MIN_CANDIDATE_SIM = 0.15
+PHASE3_TOP_N_CANDIDATES = 5
 MAX_PHASE3_CANDIDATES_PER_KPI = int(os.getenv("ONTOLOGY_MAX_PHASE3_CANDIDATES", "30"))
 ONTOLOGY_INCLUDE_ORPHANS = os.getenv("ONTOLOGY_INCLUDE_ORPHANS", "false").lower() == "true"
 PHASE3_DEFINITION_MAX_CHARS = 120
 
 _phase3_call_counter = 0
 _last_phase3_candidates: list[dict] = []
+
+
+def _write_to_ontology_log(log_data: dict) -> None:
+    try:
+        log_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        log_path = os.path.join(log_dir, "ontology_process.log")
+        
+        # Build a beautiful, structured log string
+        lines = []
+        lines.append("=" * 80)
+        lines.append(f"TIMESTAMP: {log_data['timestamp']}")
+        kpi = log_data["extracted_kpi"]
+        lines.append(f"TARGET KPI: '{kpi['name']}'")
+        lines.append(f"  - Worksheet ID: {kpi['worksheet_id']}")
+        lines.append(f"  - Worksheet Name: {kpi['worksheet_name']}")
+        lines.append(f"  - Sector Scope: {log_data['scope']['sector']}")
+        lines.append(f"  - Subdomain Scope: {log_data['scope']['subdomain']}")
+        lines.append(f"  - Lineage: {kpi['resolved_lineage']}")
+        lines.append(f"  - Aggregation Type: {kpi['aggregation_type']}")
+        lines.append(f"  - Definition: {kpi['definition']}")
+        lines.append(f"  - Extraction Method: {kpi['extraction_method']}")
+        if kpi.get("mark_type"):
+            lines.append(f"  - Mark Type: {kpi['mark_type']}")
+        if kpi.get("calculation_logic"):
+            lines.append(f"  - Calculation Logic: {kpi['calculation_logic']}")
+            
+        if log_data["cache_hit"]:
+            lines.append("\n>>> RESULT: CACHE HIT")
+            lines.append(f"  - Cached Match: {json.dumps(log_data['final_result'])}")
+        else:
+            p1 = log_data["phases"]["phase1"]
+            lines.append("\n--- PHASE 1: EXACT & ALIAS MATCHING ---")
+            lines.append(f"  - Executed: {p1['executed']}")
+            if p1["executed"]:
+                lines.append(f"  - Matched: {p1['matched']}")
+                if p1["matched"]:
+                    lines.append(f"  - Match Result: {json.dumps(p1['result'])}")
+                    
+            if not p1["matched"]:
+                p2 = log_data["phases"]["phase2"]
+                lines.append("\n--- PHASE 2: EMBEDDING SIMILARITY FILTER ---")
+                lines.append(f"  - Executed: {p2['executed']}")
+                if p2["executed"]:
+                    lines.append("  - Top Candidates:")
+                    for idx, cand in enumerate(p2["top_candidates"], 1):
+                        lines.append(f"    {idx}. ID: {cand['kpi_id']} | Name: '{cand['name']}' | Similarity: {cand['similarity_score']:.4f}")
+                    lines.append(f"  - Match Result: {json.dumps(p2['result'])}")
+                    
+                if not p2["matched"] and not (p2["result"] and p2["result"].get("mapping_status") == "not_found"):
+                    p3 = log_data["phases"]["phase3"]
+                    lines.append("\n--- PHASE 3: LLM JUDGE DECISION ---")
+                    lines.append(f"  - Executed: {p3['executed']}")
+                    if p3["executed"]:
+                        if p3.get("skipped_reason"):
+                            lines.append(f"  - Skipped: {p3['skipped_reason']}")
+                        else:
+                            lines.append("  - Candidates sent to LLM:")
+                            for cand in p3["candidates"]:
+                                lines.append(f"    - ID: {cand['kpi_id']} | Name: '{cand['name']}' | Similarity: {cand['score']:.4f}")
+                            lines.append(f"  - LLM Prompt: {p3['llm_prompt']}")
+                            lines.append(f"  - LLM Response: {p3['llm_response']}")
+                            if p3.get("error"):
+                                lines.append(f"  - LLM Error: {p3['error']}")
+                            lines.append(f"  - Match Result: {json.dumps(p3['result'])}")
+                            
+        lines.append("\nFINAL DECISION:")
+        if log_data["final_result"]:
+            lines.append(f"  - Matched Canonical KPI ID: {log_data['final_result'].get('matched_kpi_id')}")
+            lines.append(f"  - Similarity Score: {log_data['final_result'].get('similarity_score')}")
+            lines.append(f"  - Confidence Score: {log_data['final_result'].get('confidence_score')}")
+            lines.append(f"  - Status: {log_data['final_result'].get('mapping_status')}")
+            lines.append(f"  - Rationale: {log_data['final_result'].get('similarity_rationale')}")
+            lines.append(f"  - Confidence Rationale: {log_data['final_result'].get('confidence_rationale')}")
+        else:
+            lines.append("  - None")
+        lines.append("=" * 80 + "\n")
+        
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+    except Exception as e:
+        logger.error("Failed to write to ontology process log: %s", e)
 
 
 def reset_phase3_counter() -> None:
@@ -159,6 +283,20 @@ def _phase1_match(
                     "model_used": kpi.extraction_method,
                     "mapping_status": "auto_accepted",
                 }
+        
+        # Fuzzy name matching if indexed exact/alias/lineage failed
+        for ok in ontology_kpis:
+            ok_name = ok.get("name", "")
+            if ok_name and _fuzzy_name_match(name_lower, ok_name):
+                return {
+                    "matched_kpi_id": ok["kpi_id"],
+                    "similarity_score": 0.95,
+                    "confidence_score": 0.90,
+                    "similarity_rationale": f"Fuzzy name match: '{ok_name}' (typo tolerance)",
+                    "confidence_rationale": "Phase 1 fuzzy match",
+                    "model_used": kpi.extraction_method,
+                    "mapping_status": "auto_accepted",
+                }
         return None
 
     for ok in ontology_kpis:
@@ -194,6 +332,19 @@ def _phase1_match(
                 "model_used": kpi.extraction_method,
                 "mapping_status": "auto_accepted",
             }
+    # Fuzzy name matching if sequential exact/alias/lineage failed
+    for ok in ontology_kpis:
+        ok_name = ok.get("name", "")
+        if ok_name and _fuzzy_name_match(name_lower, ok_name):
+            return {
+                "matched_kpi_id": ok["kpi_id"],
+                "similarity_score": 0.95,
+                "confidence_score": 0.90,
+                "similarity_rationale": f"Fuzzy name match: '{ok_name}' (typo tolerance)",
+                "confidence_rationale": "Phase 1 fuzzy match",
+                "model_used": kpi.extraction_method,
+                "mapping_status": "auto_accepted",
+            }
     return None
 
 
@@ -217,7 +368,51 @@ def match_kpi_to_ontology(
     global _phase3_call_counter, _last_phase3_candidates
     embedding_fn = embedding_fn or compute_embedding
 
+    # Normalize the KPI name to strip dimensions, prefixes, and table refs
+    original_name = kpi.name
+    normalized_name = normalize_kpi_name(kpi.name)
+    if normalized_name != kpi.name:
+        logger.info("KPI name normalized: '%s' -> '%s'", kpi.name, normalized_name)
+        kpi = ExtractedKPI(
+            name=normalized_name,
+            resolved_lineage=kpi.resolved_lineage,
+            aggregation_type=kpi.aggregation_type,
+            definition=kpi.definition,
+            extraction_method=getattr(kpi, 'extraction_method', None),
+            worksheet_id=getattr(kpi, 'worksheet_id', None),
+            worksheet_name=getattr(kpi, 'worksheet_name', None),
+            mark_type=getattr(kpi, 'mark_type', None),
+            calculation_logic=getattr(kpi, 'calculation_logic', None),
+        )
+
+    log_data = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "extracted_kpi": {
+            "name": kpi.name,
+            "worksheet_id": getattr(kpi, "worksheet_id", None),
+            "worksheet_name": getattr(kpi, "worksheet_name", None),
+            "resolved_lineage": kpi.resolved_lineage,
+            "aggregation_type": kpi.aggregation_type,
+            "definition": getattr(kpi, "definition", None),
+            "extraction_method": getattr(kpi, "extraction_method", None),
+            "mark_type": getattr(kpi, "mark_type", None),
+            "calculation_logic": getattr(kpi, "calculation_logic", None),
+        },
+        "scope": {
+            "sector": scope_sector,
+            "subdomain": scope_subdomain,
+        },
+        "phases": {
+            "phase1": {"executed": False, "matched": False, "result": None},
+            "phase2": {"executed": False, "matched": False, "result": None, "top_candidates": []},
+            "phase3": {"executed": False, "matched": False, "result": None, "llm_prompt": None, "llm_response": None, "candidates": []}
+        },
+        "final_result": None,
+        "cache_hit": False
+    }
+
     cached = cache.get(
+        kpi.name,
         kpi.resolved_lineage,
         kpi.aggregation_type,
         scope_sector,
@@ -225,11 +420,21 @@ def match_kpi_to_ontology(
     )
     if cached:
         cached["mapping_status"] = _status_from_confidence(cached.get("confidence_score") or 0.0)
+        log_data["cache_hit"] = True
+        log_data["final_result"] = cached
+        _write_to_ontology_log(log_data)
         return cached
 
+    log_data["phases"]["phase1"]["executed"] = True
     phase1 = _phase1_match(kpi, ontology_kpis, indexes)
     if phase1:
+        log_data["phases"]["phase1"]["matched"] = True
+        log_data["phases"]["phase1"]["result"] = phase1
+        log_data["final_result"] = phase1
+        _write_to_ontology_log(log_data)
+
         cache.set(
+            kpi.name,
             kpi.resolved_lineage,
             kpi.aggregation_type,
             phase1,
@@ -240,6 +445,7 @@ def match_kpi_to_ontology(
         return phase1
 
     # Phase 2: embedding pre-filter; Phase 3 receives all slice candidates >= threshold
+    log_data["phases"]["phase2"]["executed"] = True
     kpi_text = f"{kpi.name} {kpi.definition} {' '.join(kpi.resolved_lineage)}"
     kpi_emb = embedding_fn(kpi_text)
     ranked: list[tuple[float, dict]] = []
@@ -252,18 +458,21 @@ def match_kpi_to_ontology(
         ranked.append((sim, ok))
     ranked.sort(key=lambda x: x[0], reverse=True)
 
+    # Collect top candidates (up to 5) for logging
+    top_candidates = []
+    for sim, ok in ranked[:5]:
+        top_candidates.append({
+            "kpi_id": ok.get("kpi_id"),
+            "name": ok.get("name"),
+            "similarity_score": sim
+        })
+    log_data["phases"]["phase2"]["top_candidates"] = top_candidates
+
     best_sim = ranked[0][0] if ranked else 0.0
     best_id = ranked[0][1]["kpi_id"] if ranked else None
     best_name = ranked[0][1].get("name", "") if ranked else ""
-    eligible = [(sim, ok) for sim, ok in ranked if sim >= PHASE3_MIN_CANDIDATE_SIM]
-    if len(eligible) > MAX_PHASE3_CANDIDATES_PER_KPI:
-        logger.warning(
-            "Phase 3 candidate truncation: %s eligible down to %s for KPI '%s'",
-            len(eligible),
-            MAX_PHASE3_CANDIDATES_PER_KPI,
-            kpi.name,
-        )
-        eligible = eligible[:MAX_PHASE3_CANDIDATES_PER_KPI]
+    # Always take top N candidates for LLM Phase 3 — no hard cutoff
+    eligible = ranked[:PHASE3_TOP_N_CANDIDATES]
     llm_candidates = [
         {
             "kpi_id": ok["kpi_id"],
@@ -284,27 +493,13 @@ def match_kpi_to_ontology(
             "model_used": "embedding",
             "mapping_status": "auto_accepted",
         }
-        cache.set(
-            kpi.resolved_lineage,
-            kpi.aggregation_type,
-            result,
-            sector=scope_sector,
-            subdomain=scope_subdomain,
-            commit=False,
-        )
-        return result
+        log_data["phases"]["phase2"]["matched"] = True
+        log_data["phases"]["phase2"]["result"] = result
+        log_data["final_result"] = result
+        _write_to_ontology_log(log_data)
 
-    if best_sim < 0.50:
-        result = {
-            "matched_kpi_id": None,
-            "similarity_score": best_sim,
-            "confidence_score": best_sim,
-            "similarity_rationale": "No close ontology match",
-            "confidence_rationale": "Phase 2b below threshold",
-            "model_used": "embedding",
-            "mapping_status": "not_found",
-        }
         cache.set(
+            kpi.name,
             kpi.resolved_lineage,
             kpi.aggregation_type,
             result,
@@ -315,6 +510,9 @@ def match_kpi_to_ontology(
         return result
 
     # Phase 3: LLM judge on top-N candidates in scoped slice (sim >= 0.50)
+    log_data["phases"]["phase3"]["executed"] = True
+    log_data["phases"]["phase3"]["candidates"] = llm_candidates
+
     if _phase3_call_counter >= MAX_PHASE3_CALLS_PER_EXTRACTION or not llm:
         conf = best_sim
         result = {
@@ -326,7 +524,13 @@ def match_kpi_to_ontology(
             "model_used": "embedding_fallback",
             "mapping_status": _status_from_confidence(conf),
         }
+        log_data["phases"]["phase3"]["skipped_reason"] = "LLM cap reached or LLM not provided"
+        log_data["phases"]["phase3"]["result"] = result
+        log_data["final_result"] = result
+        _write_to_ontology_log(log_data)
+
         cache.set(
+            kpi.name,
             kpi.resolved_lineage,
             kpi.aggregation_type,
             result,
@@ -359,23 +563,70 @@ def match_kpi_to_ontology(
 Report KPI: {json.dumps(report_ctx)}
 Candidates: {json.dumps(candidates)}
 Return JSON: matched_kpi_id (or null), similarity_score, confidence_score, rationale"""
-    try:
-        res = llm.invoke(prompt)
-        content = (res.content or "").strip()
-        if content.startswith("```"):
-            content = re.sub(r"^```(?:json)?", "", content).strip().rstrip("`")
-        parsed = json.loads(content)
-        conf = float(parsed.get("confidence_score", best_sim))
+
+    log_data["phases"]["phase3"]["llm_prompt"] = prompt
+
+    parsed_result = None
+    structured_success = False
+
+    # Try structured output first
+    base_llm = getattr(llm, 'base_llm', llm)
+    if base_llm and hasattr(base_llm, 'with_structured_output'):
+        try:
+            structured_llm = base_llm.with_structured_output(Phase3JudgeResult)
+            res = structured_llm.invoke(prompt)
+            if res:
+                parsed_result = {
+                    "matched_kpi_id": res.matched_kpi_id,
+                    "similarity_score": res.similarity_score,
+                    "confidence_score": res.confidence_score,
+                    "rationale": res.rationale
+                }
+                log_data["phases"]["phase3"]["llm_response"] = json.dumps(parsed_result)
+                structured_success = True
+        except Exception as str_err:
+            logger.warning("with_structured_output failed, falling back to string prompt: %s", str_err)
+
+    if not structured_success:
+        # Standard raw string prompt fallback
+        try:
+            res = llm.invoke(prompt)
+            content = (res.content or "").strip()
+            log_data["phases"]["phase3"]["llm_response"] = content
+            
+            # Robust JSON extraction from text (looks for first '{' and last '}')
+            json_match = re.search(r"(\{.*\})", content, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(1)
+                parsed_json = json.loads(json_str)
+                parsed_result = {
+                    "matched_kpi_id": parsed_json.get("matched_kpi_id"),
+                    "similarity_score": float(parsed_json.get("similarity_score", best_sim)),
+                    "confidence_score": float(parsed_json.get("confidence_score", best_sim)),
+                    "rationale": parsed_json.get("rationale", "LLM judge")
+                }
+            else:
+                raise ValueError("No JSON object found in LLM response")
+        except Exception as e:
+            logger.error("Phase 3 LLM failed: %s", e)
+            log_data["phases"]["phase3"]["error"] = str(e)
+
+    if parsed_result:
+        conf = float(parsed_result.get("confidence_score", best_sim))
         result = {
-            "matched_kpi_id": parsed.get("matched_kpi_id") or (best_id if conf >= 0.70 else None),
-            "similarity_score": float(parsed.get("similarity_score", best_sim)),
+            "matched_kpi_id": parsed_result.get("matched_kpi_id") or (best_id if conf >= 0.70 else None),
+            "similarity_score": float(parsed_result.get("similarity_score", best_sim)),
             "confidence_score": conf,
-            "similarity_rationale": parsed.get("rationale", "LLM judge"),
-            "confidence_rationale": "Phase 3 LLM",
+            "similarity_rationale": parsed_result.get("rationale", "LLM judge"),
+            "confidence_rationale": "Phase 3 LLM" if structured_success else "Phase 3 LLM fallback",
             "model_used": "llm_judge",
             "mapping_status": _status_from_confidence(conf),
         }
-    except Exception:
+        log_data["phases"]["phase3"]["matched"] = parsed_result.get("matched_kpi_id") is not None
+        log_data["phases"]["phase3"]["result"] = result
+        log_data["final_result"] = result
+    else:
+        # Fallback to embedding if LLM completely failed
         result = {
             "matched_kpi_id": best_id,
             "similarity_score": best_sim,
@@ -385,8 +636,13 @@ Return JSON: matched_kpi_id (or null), similarity_score, confidence_score, ratio
             "model_used": "embedding",
             "mapping_status": _status_from_confidence(best_sim),
         }
+        log_data["phases"]["phase3"]["result"] = result
+        log_data["final_result"] = result
+
+    _write_to_ontology_log(log_data)
 
     cache.set(
+        kpi.name,
         kpi.resolved_lineage,
         kpi.aggregation_type,
         result,
@@ -395,6 +651,9 @@ Return JSON: matched_kpi_id (or null), similarity_score, confidence_score, ratio
         commit=False,
     )
     return result
+
+
+MAX_CROSS_SUBDOMAIN_CANDIDATES = 3
 
 
 def match_kpi_scoped(
@@ -408,7 +667,12 @@ def match_kpi_scoped(
     sector: str,
     subdomain: str,
 ) -> dict:
-    """Match against subdomain slice first, expand to sector slice on miss."""
+    """Match against subdomain slice first, expand to sector slice on miss.
+
+    Cross-subdomain fallback pre-filters candidates to the top 3 by embedding
+    similarity before sending to Phase 3 LLM, managing API budget while
+    maximizing recall. Auto-accept threshold is identical (>= 0.90).
+    """
     sub_indexes = build_ontology_match_indexes(subdomain_kpis) if subdomain_kpis else None
     result = match_kpi_to_ontology(
         kpi,
@@ -428,10 +692,29 @@ def match_kpi_scoped(
     if not sector_only:
         return result
 
-    sec_indexes = build_ontology_match_indexes(sector_only)
+    # Pre-filter: rank cross-subdomain candidates by embedding similarity,
+    # keep only top N to limit LLM Phase 3 budget
+    _emb_fn = embedding_fn or compute_embedding
+    kpi_text = f"{kpi.name} {kpi.definition} {' '.join(kpi.resolved_lineage)}"
+    kpi_emb = _emb_fn(kpi_text)
+    scored = []
+    for ok in sector_only:
+        ok_text = f"{ok.get('name', '')} {ok.get('definition', '')}"
+        ok_emb = ok.get("embedding")
+        if ok_emb is None:
+            ok_emb = _emb_fn(ok_text)
+        sim = cosine_similarity(kpi_emb, ok_emb)
+        scored.append((sim, ok))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    top_sector = [ok for _, ok in scored[:MAX_CROSS_SUBDOMAIN_CANDIDATES]]
+
+    if not top_sector:
+        return result
+
+    sec_indexes = build_ontology_match_indexes(top_sector)
     sector_result = match_kpi_to_ontology(
         kpi,
-        sector_only,
+        top_sector,
         cache,
         llm,
         embedding_fn,
@@ -550,6 +833,7 @@ def persist_mapping(
     row.confidence_rationale = match.get("confidence_rationale")
     row.mapping_status = match.get("mapping_status", "pending_review")
     row.model_used = match.get("model_used") or kpi.extraction_method
+    row.is_dynamic = getattr(kpi, "is_dynamic", False)
     row.ontology_version = ONTOLOGY_VERSION
     row.computed_at = datetime.utcnow()
     if commit:
@@ -596,6 +880,9 @@ def process_dashboard_kpis(
 
     if loaded_fresh:
         reset_phase3_counter()
+        # Reset embedding failure counter so Azure gets a fresh chance each run
+        from app.services.ontology.embedding_service import reset_embedding_failures
+        reset_embedding_failures()
 
     llm = llm if llm is not None else get_llm(temperature=0.0)
     cache = cache or OntologyCache(db)

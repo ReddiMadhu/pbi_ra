@@ -16,13 +16,15 @@ class OntologyCache:
 
     def _make_key(
         self,
+        kpi_name: str,
         lineage: list[str],
         aggregation: str,
         sector: str | None = None,
         subdomain: str | None = None,
     ) -> str:
         payload = (
-            json.dumps(sorted(lineage), sort_keys=True)
+            (kpi_name or "").strip().lower()
+            + json.dumps(sorted(lineage), sort_keys=True)
             + (aggregation or "").upper()
             + (sector or "")
             + (subdomain or "")
@@ -32,12 +34,13 @@ class OntologyCache:
 
     def get(
         self,
+        kpi_name: str,
         lineage: list[str],
         aggregation: str,
         sector: str | None = None,
         subdomain: str | None = None,
     ) -> dict | None:
-        key = self._make_key(lineage, aggregation, sector, subdomain)
+        key = self._make_key(kpi_name, lineage, aggregation, sector, subdomain)
         row = self.db.query(KPIOntologyCache).filter(KPIOntologyCache.cache_key == key).first()
         if not row:
             return None
@@ -52,6 +55,7 @@ class OntologyCache:
 
     def set(
         self,
+        kpi_name: str,
         lineage: list[str],
         aggregation: str,
         result: dict,
@@ -60,7 +64,7 @@ class OntologyCache:
         subdomain: str | None = None,
         commit: bool = True,
     ) -> None:
-        key = self._make_key(lineage, aggregation, sector, subdomain)
+        key = self._make_key(kpi_name, lineage, aggregation, sector, subdomain)
         existing = self.db.query(KPIOntologyCache).filter(KPIOntologyCache.cache_key == key).first()
         if existing:
             return
@@ -80,3 +84,17 @@ class OntologyCache:
 
     def flush(self) -> None:
         self.db.commit()
+
+    def clear_all(self) -> int:
+        """Delete every cache row — call after the ontology bank is modified."""
+        count = self.db.query(KPIOntologyCache).delete()
+        self.db.commit()
+        return count
+
+
+def invalidate_ontology_cache(db) -> int:
+    """Module-level helper: wipe the entire KPI ontology cache table."""
+    from app.models.ontology import KPIOntologyCache as _Cache
+    count = db.query(_Cache).delete()
+    db.commit()
+    return count

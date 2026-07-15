@@ -3,7 +3,6 @@ import json
 import math
 import os
 import struct
-from functools import lru_cache
 
 
 def _hash_embedding(text: str, dim: int = 128) -> list[float]:
@@ -19,26 +18,75 @@ def _hash_embedding(text: str, dim: int = 128) -> list[float]:
     return [v / norm for v in vec]
 
 
-@lru_cache(maxsize=5000)
+# Fix #7: Use a clearable dict cache instead of lru_cache so it can be
+# reset when the OpenAI API key changes or the server needs a fresh start.
+_embedding_cache: dict[str, tuple[float, ...]] = {}
+
+
+def clear_embedding_cache() -> int:
+    """Clear the in-memory embedding cache. Returns count of cleared entries."""
+    count = len(_embedding_cache)
+    _embedding_cache.clear()
+    return count
+
+
+import logging as _emb_logging
+
+_emb_logger = _emb_logging.getLogger(__name__)
+_embedding_consecutive_failures = 0
+_EMBEDDING_MAX_FAILURES = 3
+
+
+def reset_embedding_failures() -> None:
+    """Reset the failure counter — call at the start of each extraction run."""
+    global _embedding_consecutive_failures
+    _embedding_consecutive_failures = 0
+
+
 def compute_embedding(text: str) -> tuple[float, ...]:
+    global _embedding_consecutive_failures
     text = (text or "").strip()
     if not text:
         return tuple([0.0] * 128)
 
+    if text in _embedding_cache:
+        return _embedding_cache[text]
+
     openai_key = os.getenv("OPENAI_API_KEY")
     azure_key = os.getenv("AZURE_OPENAI_API_KEY")
-    if openai_key or azure_key:
+    azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+    if (openai_key or azure_key) and _embedding_consecutive_failures < _EMBEDDING_MAX_FAILURES:
         try:
-            from langchain_openai import OpenAIEmbeddings
-
-            model = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
-            emb = OpenAIEmbeddings(api_key=openai_key or azure_key, model=model)
+            if azure_key and azure_endpoint:
+                from langchain_openai import AzureOpenAIEmbeddings
+                deployment = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT") or os.getenv("OPENAI_EMBEDDING_MODEL") or "text-embedding-3-small"
+                api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
+                emb = AzureOpenAIEmbeddings(
+                    api_key=azure_key,
+                    azure_endpoint=azure_endpoint,
+                    azure_deployment=deployment,
+                    api_version=api_version
+                )
+            else:
+                from langchain_openai import OpenAIEmbeddings
+                model = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
+                emb = OpenAIEmbeddings(api_key=openai_key, model=model)
+            
             vector = emb.embed_query(text)
-            return tuple(float(x) for x in vector)
-        except Exception:
-            pass
+            result = tuple(float(x) for x in vector)
+            _embedding_cache[text] = result
+            _embedding_consecutive_failures = 0  # reset on success
+            return result
+        except Exception as e:
+            _embedding_consecutive_failures += 1
+            _emb_logger.warning(
+                "Embedding API failure #%d/%d: %s",
+                _embedding_consecutive_failures, _EMBEDDING_MAX_FAILURES, e,
+            )
 
-    return tuple(_hash_embedding(text))
+    result = tuple(_hash_embedding(text))
+    _embedding_cache[text] = result
+    return result
 
 
 def compute_embeddings_batch(texts: list[str]) -> list[list[float]]:
@@ -67,11 +115,22 @@ def blob_to_embedding(blob: bytes) -> list[float]:
     return list(struct.unpack(f"{n}f", blob))
 
 
-def embed_ontology_kpis(db) -> int:
-    """Compute and persist embeddings for all active ontology KPIs."""
-    from app.models.ontology import OntologyKPI
+def embed_ontology_kpis(db, force: bool = False) -> int:
+    """Compute and persist embeddings for active ontology KPIs.
+    
+    If force is False, skips rows that already have non-null embeddings to save API calls.
 
-    rows = db.query(OntologyKPI).filter(OntologyKPI.status == "active").all()
+    Also invalidates the ontology match cache (Fix #5) since the bank has
+    changed and cached match results may be stale.
+    """
+    from app.models.ontology import OntologyKPI
+    from app.services.ontology.ontology_cache import invalidate_ontology_cache
+
+    q = db.query(OntologyKPI).filter(OntologyKPI.status == "active")
+    if not force:
+        q = q.filter(OntologyKPI.embedding.is_(None))
+    rows = q.all()
+    
     count = 0
     for row in rows:
         aliases = []
@@ -83,5 +142,14 @@ def embed_ontology_kpis(db) -> int:
         vector = compute_embedding(text)
         row.embedding = embedding_to_blob(vector)
         count += 1
-    db.commit()
+        
+    if count:
+        db.commit()
+
+    # Fix #5: Invalidate stale cache entries now that the bank has changed
+    try:
+        invalidate_ontology_cache(db)
+    except Exception:
+        pass
+
     return count

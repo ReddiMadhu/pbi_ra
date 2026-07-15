@@ -9,6 +9,151 @@ AGG_PATTERN = re.compile(
 )
 FIELD_REF = re.compile(r"\[([^\]]+)\]")
 
+NON_KPI_PATTERNS = [
+    # Constants (e.g. 0, 1, 100, 1.5)
+    re.compile(r"^\s*\d+(?:\.\d+)?\s*$"),
+    # Table calculations with no business meaning
+    re.compile(r"^\s*(LAST|FIRST|INDEX|SIZE|RUNNING_)\s*\(", re.I),
+    # Filter booleans: [Field] = [Parameter] or [Field] = 'Value'
+    re.compile(r"^\s*\[[^\]]+\]\s*=\s*\[[^\]]+\]\s*$"),
+    re.compile(r"^\s*\[[^\]]+\]\s*=\s*'[^']*'\s*$", re.I),
+    # Pure date part extraction (not aggregated)
+    re.compile(r"^\s*(YEAR|MONTH|DAY|DATEPART|DATENAME)\s*\(\s*\[", re.I),
+    # Parameter reference/equality checks
+    re.compile(r"\[Parameter\s*\d+\]", re.I),
+]
+
+NON_KPI_NAMES = {
+    "last", "first", "one", "zero", "index", "disable highlighting",
+    "region filter", "state filter", "year filter", "year filter max",
+    "filter: performance card (claim close date)",
+    "filter: performance kpi (claim close date)",
+    "date calculation", "gender | text", "bin description",
+    "bin max", "bin size | income"
+}
+
+NON_KPI_NAME_PATTERNS = [
+    re.compile(r"\bfilter\b", re.I),
+    re.compile(r"\bparameter\b", re.I),
+    re.compile(r"^(period|main date):", re.I),
+    re.compile(r"^(max|min|last|first)\s+(date|year|month|day)$", re.I),
+]
+
+def _is_non_kpi(name: str, formula: str | None = None) -> bool:
+    name_clean = str(name).strip().lower()
+    if name_clean in NON_KPI_NAMES:
+        return True
+    for p in NON_KPI_NAME_PATTERNS:
+        if p.search(name_clean):
+            return True
+    if formula:
+        formula_clean = str(formula).strip()
+        for pattern in NON_KPI_PATTERNS:
+            if pattern.search(formula_clean):
+                return True
+    return False
+
+
+# Pattern to detect raw column references (just [ColumnName] with no aggregation)
+RAW_COLUMN_REF = re.compile(r"^\s*\[[^\]]+\]\s*$")
+
+# Patterns for CASE/IF switcher branches
+CASE_BRANCH = re.compile(
+    r"WHEN\s+['\"][^'\"]+['\"]\s+THEN\s+\[([^\]]+)\]",
+    re.IGNORECASE,
+)
+IF_THEN_BRANCH = re.compile(
+    r"THEN\s+\[([^\]]+)\]",
+    re.IGNORECASE,
+)
+
+
+def _is_raw_column_ref(formula: str | None) -> bool:
+    """True if the formula is just a bare column reference like [Claim Paid Amount]."""
+    if not formula:
+        return False
+    return bool(RAW_COLUMN_REF.match(formula.strip()))
+
+
+def _deconstruct_switcher(
+    formula: str,
+    calc_map: dict[str, dict],
+    worksheet_id: str | None,
+    worksheet_name: str,
+    mark_type: str | None,
+    parent_name: str,
+    depth: int = 0,
+    max_depth: int = 3,
+) -> list["ExtractedKPI"]:
+    """Recursively extract sub-measures referenced inside CASE/IF switcher formulas.
+
+    Returns a list of ExtractedKPI entries for each resolved sub-measure,
+    marked with is_dynamic=True and referencing the parent switcher.
+    Recurses up to max_depth levels to resolve nested calculations.
+    """
+    if depth >= max_depth:
+        return []
+
+    results: list[ExtractedKPI] = []
+    seen_refs: set[str] = set()
+
+    # Extract field references from CASE WHEN ... THEN [FieldRef] branches
+    for match in CASE_BRANCH.finditer(formula):
+        seen_refs.add(match.group(1))
+
+    # Extract field references from IF ... THEN [FieldRef] branches
+    for match in IF_THEN_BRANCH.finditer(formula):
+        seen_refs.add(match.group(1))
+
+    for ref_name in seen_refs:
+        meta = calc_map.get(ref_name.lower())
+        if meta:
+            ref_formula = meta["formula"]
+            # Only recurse into genuine CASE switchers, not conditional aggregations
+            # SUM(IF ... THEN [X]) is a real KPI, not a switcher
+            is_agg_wrapped = bool(AGG_PATTERN.match(ref_formula.strip()))
+            is_genuine_switcher = "CASE" in ref_formula.upper() and not is_agg_wrapped
+
+            if is_genuine_switcher:
+                results.extend(
+                    _deconstruct_switcher(
+                        ref_formula, calc_map, worksheet_id, worksheet_name,
+                        mark_type, ref_name, depth + 1, max_depth,
+                    )
+                )
+            elif not _is_raw_column_ref(ref_formula) and not _is_non_kpi(ref_name, ref_formula):
+                results.append(
+                    ExtractedKPI(
+                        name=meta["name"],
+                        resolved_lineage=meta["lineage"],
+                        aggregation_type=meta["aggregation"],
+                        definition=meta["formula"],
+                        extraction_method="switcher_component",
+                        worksheet_id=worksheet_id,
+                        worksheet_name=worksheet_name,
+                        mark_type=mark_type,
+                        is_dynamic=True,
+                        source_description=f"Extracted from switcher '{parent_name}'",
+                    )
+                )
+        # If not in calc_map, it might be a direct measure reference
+        elif not _is_non_kpi(ref_name):
+            results.append(
+                ExtractedKPI(
+                    name=ref_name,
+                    resolved_lineage=[],
+                    aggregation_type="UNKNOWN",
+                    definition="",
+                    extraction_method="switcher_component",
+                    worksheet_id=worksheet_id,
+                    worksheet_name=worksheet_name,
+                    mark_type=mark_type,
+                    is_dynamic=True,
+                    source_description=f"Extracted from switcher '{parent_name}'",
+                )
+            )
+    return results
+
 
 @dataclass
 class ExtractedKPI:
@@ -22,6 +167,7 @@ class ExtractedKPI:
     mark_type: str | None = None
     calculation_logic: str | None = None
     source_description: str | None = None
+    is_dynamic: bool = False
 
 
 def _lineage_key(lineage: list[str], aggregation: str) -> str:
@@ -375,7 +521,32 @@ def extract_kpis_per_worksheet(
         kpis.extend(
             _extract_mark_card_measures(ws, calc_map, worksheet_id, worksheet_name)
         )
-        result[worksheet_name] = _dedupe_worksheet_kpis(kpis)
+        # Filter non-KPIs and raw column references
+        filtered_kpis = [
+            k for k in kpis
+            if not _is_non_kpi(k.name, k.definition or k.calculation_logic)
+            and not _is_raw_column_ref(k.definition)
+        ]
+
+        # Deconstruct switcher calculations (CASE/IF) into component KPIs
+        switcher_kpis: list[ExtractedKPI] = []
+        for k in list(filtered_kpis):
+            formula = k.definition or k.calculation_logic or ""
+            if ("CASE" in formula.upper() or ("IF" in formula.upper() and "THEN" in formula.upper())) \
+                    and ("WHEN" in formula.upper() or "THEN" in formula.upper()):
+                components = _deconstruct_switcher(
+                    formula, calc_map, worksheet_id, worksheet_name,
+                    mark_type=getattr(ws, "mark_type", None),
+                    parent_name=k.name,
+                )
+                if components:
+                    switcher_kpis.extend(components)
+        filtered_kpis.extend(switcher_kpis)
+
+        deduped = _dedupe_worksheet_kpis(filtered_kpis)
+        # Hide worksheets with zero KPIs entirely
+        if deduped:
+            result[worksheet_name] = deduped
 
     return result
 
