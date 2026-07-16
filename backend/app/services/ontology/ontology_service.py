@@ -297,6 +297,17 @@ def _phase1_match(
                     "model_used": kpi.extraction_method,
                     "mapping_status": "auto_accepted",
                 }
+            for alias in ok.get("aliases") or []:
+                if _fuzzy_name_match(name_lower, str(alias)):
+                    return {
+                        "matched_kpi_id": ok["kpi_id"],
+                        "similarity_score": 0.93,
+                        "confidence_score": 0.88,
+                        "similarity_rationale": f"Fuzzy alias match: '{alias}' (typo tolerance)",
+                        "confidence_rationale": "Phase 1 fuzzy alias match",
+                        "model_used": kpi.extraction_method,
+                        "mapping_status": "pending_review",
+                    }
         return None
 
     for ok in ontology_kpis:
@@ -345,13 +356,25 @@ def _phase1_match(
                 "model_used": kpi.extraction_method,
                 "mapping_status": "auto_accepted",
             }
+        for alias in ok.get("aliases") or []:
+            if _fuzzy_name_match(name_lower, str(alias)):
+                return {
+                    "matched_kpi_id": ok["kpi_id"],
+                    "similarity_score": 0.93,
+                    "confidence_score": 0.88,
+                    "similarity_rationale": f"Fuzzy alias match: '{alias}' (typo tolerance)",
+                    "confidence_rationale": "Phase 1 fuzzy alias match",
+                    "model_used": kpi.extraction_method,
+                    "mapping_status": "pending_review",
+                }
     return None
 
 
 def _needs_sector_fallback(result: dict) -> bool:
     status = result.get("mapping_status")
     conf = float(result.get("confidence_score") or 0.0)
-    return status == "not_found" or conf < 0.50
+    # Trigger fallback if the subdomain match is not auto_accepted (confidence < 0.90)
+    return status == "not_found" or conf < 0.90
 
 
 def match_kpi_to_ontology(
@@ -653,7 +676,7 @@ Return JSON: matched_kpi_id (or null), similarity_score, confidence_score, ratio
     return result
 
 
-MAX_CROSS_SUBDOMAIN_CANDIDATES = 3
+MAX_CROSS_SUBDOMAIN_CANDIDATES = 10
 
 
 def match_kpi_scoped(
@@ -699,7 +722,8 @@ def match_kpi_scoped(
     kpi_emb = _emb_fn(kpi_text)
     scored = []
     for ok in sector_only:
-        ok_text = f"{ok.get('name', '')} {ok.get('definition', '')}"
+        aliases_list = ok.get("aliases") or []
+        ok_text = f"{ok.get('name', '')} {ok.get('definition', '')} {' '.join(aliases_list)}"
         ok_emb = ok.get("embedding")
         if ok_emb is None:
             ok_emb = _emb_fn(ok_text)
@@ -722,9 +746,12 @@ def match_kpi_scoped(
         scope_sector=sector,
         scope_subdomain="__sector__",
     )
-    if sector_result.get("mapping_status") != "not_found" or (
-        float(sector_result.get("confidence_score") or 0.0) > float(result.get("confidence_score") or 0.0)
-    ):
+    
+    # Calculate actual confidences (treating not_found as 0.0 confidence)
+    sub_conf = 0.0 if result.get("mapping_status") == "not_found" else float(result.get("confidence_score") or 0.0)
+    sec_conf = 0.0 if sector_result.get("mapping_status") == "not_found" else float(sector_result.get("confidence_score") or 0.0)
+    
+    if sec_conf > sub_conf:
         sector_result["confidence_rationale"] = (
             (sector_result.get("confidence_rationale") or "") + " (sector fallback)"
         ).strip()

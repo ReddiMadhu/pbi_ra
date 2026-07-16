@@ -13,7 +13,7 @@ else:
     SQLITE_URL = "sqlite:///./tableau_gov.db"
 engine = create_engine(
     SQLITE_URL,
-    connect_args={"check_same_thread": False}  # Required for SQLite with FastAPI
+    connect_args={"check_same_thread": False, "timeout": 30}  # Required for SQLite with FastAPI/concurrency
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
