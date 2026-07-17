@@ -982,8 +982,6 @@ def persist_mapping(
     if commit:
         db.commit()
         db.refresh(row)
-    else:
-        db.flush()
     return row
 
 

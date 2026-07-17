@@ -13,6 +13,9 @@ class OntologyCache:
     def __init__(self, db: Session, ontology_version: str | None = None):
         self.db = db
         self.ontology_version = ontology_version or self.ONTOLOGY_VERSION
+        # Track cache keys added to the session but not yet flushed,
+        # so duplicates are skipped even when db.no_autoflush is active.
+        self._pending_keys: set[str] = set()
 
     def _make_key(
         self,
@@ -69,6 +72,9 @@ class OntologyCache:
         commit: bool = True,
     ) -> None:
         key = self._make_key(kpi_name, lineage, aggregation, sector, subdomain)
+        # Skip if this key is already pending in the session (unflushed)
+        if key in self._pending_keys:
+            return
         existing = self.db.query(KPIOntologyCache).filter(KPIOntologyCache.cache_key == key).first()
         if existing:
             return
@@ -83,11 +89,14 @@ class OntologyCache:
             computed_at=datetime.utcnow(),
         )
         self.db.add(row)
+        self._pending_keys.add(key)
         if commit:
             self.db.commit()
+            self._pending_keys.discard(key)
 
     def flush(self) -> None:
         self.db.commit()
+        self._pending_keys.clear()
 
     def clear_all(self) -> int:
         """Delete every cache row — call after the ontology bank is modified."""
