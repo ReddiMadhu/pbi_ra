@@ -413,6 +413,32 @@ class TableauParser:
                                 "table": table or "",
                                 "lineage": lineage,
                             })
+
+                    # Also extract from <column-instance> tags with derivation other than None/User
+                    for ci in ws_el.findall('.//column-instance'):
+                        deriv = ci.attrib.get('derivation')
+                        col_ref = ci.attrib.get('column')
+                        if deriv and col_ref:
+                            deriv_upper = deriv.upper()
+                            if deriv_upper not in ('NONE', 'USER', ''):
+                                if deriv_upper == "CNT":
+                                    deriv_upper = "COUNT"
+                                col_part = col_ref.strip('[]')
+                                if '].[' in col_ref:
+                                    col_part = col_ref.split('].[')[-1].strip(']')
+                                parts = col_part.split(':')
+                                clean_col = parts[1] if len(parts) >= 2 else col_part
+                                table = getattr(self, 'col_to_table_map', {}).get(clean_col)
+                                lineage = f"{table}.{clean_col}" if table else clean_col
+                                key = (deriv_upper, lineage)
+                                if key not in seen:
+                                    seen.add(key)
+                                    bindings.append({
+                                        "field": clean_col,
+                                        "aggregation": deriv_upper,
+                                        "table": table or "",
+                                        "lineage": lineage,
+                                    })
                     return bindings
 
                 cols_raw = cols_el.text if cols_el is not None and cols_el.text else ""

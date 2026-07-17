@@ -16,6 +16,51 @@ class CachedAIMessage:
     def __init__(self, content: str):
         self.content = content
 
+class CachedStructuredRunnable:
+    """Wraps the Runnable returned by with_structured_output to support caching."""
+    def __init__(self, base_runnable, cache_llm, schema):
+        self.base_runnable = base_runnable
+        self.cache_llm = cache_llm
+        self.schema = schema
+
+    def invoke(self, input_data: Any) -> Any:
+        if isinstance(input_data, str):
+            prompt_str = input_data
+        elif hasattr(input_data, 'to_string'):
+            prompt_str = input_data.to_string()
+        else:
+            try:
+                prompt_str = str(input_data)
+            except Exception:
+                return self.base_runnable.invoke(input_data)
+
+        prompt_hash = self.cache_llm._get_hash(prompt_str)
+        structured_hash = f"struct_{prompt_hash}"
+
+        if structured_hash in self.cache_llm.cache:
+            cached_data = self.cache_llm.cache[structured_hash]
+            print(f"[LLM Cache Hit] Returning cached structured response for hash: {prompt_hash[:8]}")
+            if self.schema and hasattr(self.schema, 'parse_obj'):
+                return self.schema.parse_obj(cached_data)
+            elif self.schema and hasattr(self.schema, 'model_validate'):
+                return self.schema.model_validate(cached_data)
+            return cached_data
+
+        print(f"[LLM Cache Miss] Calling real AI API for structured hash: {prompt_hash[:8]}")
+        response = self.base_runnable.invoke(input_data)
+
+        if response:
+            if hasattr(response, 'dict'):
+                serialized = response.dict()
+            elif hasattr(response, 'model_dump'):
+                serialized = response.model_dump()
+            else:
+                serialized = response
+            self.cache_llm.cache[structured_hash] = serialized
+            self.cache_llm._save_cache()
+
+        return response
+
 _cache_memory = None
 
 class CachedLLM:
@@ -29,6 +74,12 @@ class CachedLLM:
         if _cache_memory is None:
             _cache_memory = self._load_cache()
         self.cache = _cache_memory
+
+    def with_structured_output(self, schema, **kwargs):
+        if hasattr(self.base_llm, 'with_structured_output'):
+            base_runnable = self.base_llm.with_structured_output(schema, **kwargs)
+            return CachedStructuredRunnable(base_runnable, self, schema)
+        return self
 
     def _load_cache(self) -> dict:
         if os.path.exists(CACHE_FILE):

@@ -1,4 +1,9 @@
+import logging
+import time
+
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
+
 from app.models.metadata import WorkbookMetadata
 from app.models.postgres import (
     Workbook, Dashboard, Worksheet, CalculatedField,
@@ -6,6 +11,27 @@ from app.models.postgres import (
 )
 from app.models.ontology import ReportKPIMapping
 from app.agents.workflows import run_governance_workflow
+
+logger = logging.getLogger(__name__)
+
+
+def _retry_commit(session: Session, *, max_retries: int = 5, label: str = ""):
+    """Commit with exponential-backoff retry on SQLite 'database is locked'."""
+    for attempt in range(1, max_retries + 1):
+        try:
+            session.commit()
+            return
+        except OperationalError as exc:
+            if "database is locked" in str(exc) and attempt < max_retries:
+                wait = 0.5 * (2 ** (attempt - 1))   # 0.5, 1, 2, 4, 8
+                logger.warning(
+                    "database is locked during %s (attempt %d/%d), retrying in %.1fs...",
+                    label or "commit", attempt, max_retries, wait,
+                )
+                session.rollback()
+                time.sleep(wait)
+            else:
+                raise
 
 
 def sync_metadata_to_db(metadata: WorkbookMetadata, pg_session: Session):
@@ -135,7 +161,7 @@ def sync_metadata_to_db(metadata: WorkbookMetadata, pg_session: Session):
         version=metadata.version
     )
     pg_session.add(wb_db)
-    pg_session.commit()
+    _retry_commit(pg_session, label=f"workbook {metadata.source_file}")
     pg_session.refresh(wb_db)
 
     # ── 2. Datasources, Tables, Joins ─────────────────────────────
@@ -146,7 +172,7 @@ def sync_metadata_to_db(metadata: WorkbookMetadata, pg_session: Session):
             caption=ds_meta.caption
         )
         pg_session.add(ds_db)
-        pg_session.commit()
+        _retry_commit(pg_session, label="datasource")
         pg_session.refresh(ds_db)
 
         # Tables
@@ -159,7 +185,7 @@ def sync_metadata_to_db(metadata: WorkbookMetadata, pg_session: Session):
                 rows=tbl.rows_preview
             )
             pg_session.add(tbl_db)
-            pg_session.commit()
+            _retry_commit(pg_session, label="table")
             pg_session.refresh(tbl_db)
             table_name_to_id[tbl.name] = tbl_db.id
 
@@ -175,7 +201,7 @@ def sync_metadata_to_db(metadata: WorkbookMetadata, pg_session: Session):
             )
             pg_session.add(join_db)
 
-    pg_session.commit()
+    _retry_commit(pg_session, label="joins")
 
     # ── 3. Dashboards, Worksheets, CalculatedFields ───────────────
     db_id_mapping = {}
@@ -193,7 +219,7 @@ def sync_metadata_to_db(metadata: WorkbookMetadata, pg_session: Session):
             raw_metadata=raw_meta
         )
         pg_session.add(dash_db)
-        pg_session.commit()
+        _retry_commit(pg_session, label="dashboard")
         pg_session.refresh(dash_db)
         db_id_mapping[db_meta.name] = dash_db.id
 
@@ -263,7 +289,18 @@ def sync_metadata_to_db(metadata: WorkbookMetadata, pg_session: Session):
                     datatype=cf.datatype,
                 ))
 
-    pg_session.commit()
+    _retry_commit(pg_session, label="worksheets & calc_fields")
 
     # ── 4. AI Governance Workflow ─────────────────────────────────
-    run_governance_workflow(metadata, pg_session, db_id_mapping)
+    try:
+        run_governance_workflow(metadata, pg_session, db_id_mapping)
+    except OperationalError as e:
+        if "database is locked" in str(e):
+            logger.warning(
+                "Governance workflow commit failed (database locked) for %s — "
+                "metadata is saved; AI summary will be populated on next upload.",
+                metadata.source_file,
+            )
+            pg_session.rollback()
+        else:
+            raise

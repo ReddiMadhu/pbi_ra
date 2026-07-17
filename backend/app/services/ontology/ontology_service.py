@@ -695,10 +695,9 @@ Use the worksheet_context and visual_filters to guide matching when the raw metr
     structured_success = False
 
     # Try structured output first
-    base_llm = getattr(llm, 'base_llm', llm)
-    if base_llm and hasattr(base_llm, 'with_structured_output'):
+    if llm and hasattr(llm, 'with_structured_output'):
         try:
-            structured_llm = base_llm.with_structured_output(Phase3JudgeResult)
+            structured_llm = llm.with_structured_output(Phase3JudgeResult)
             res = structured_llm.invoke(prompt)
             if res:
                 parsed_result = {
@@ -1122,7 +1121,27 @@ def process_dashboard_kpis(
         for kpi, match in matches_to_persist:
             persist_mapping(db, report_id, kpi, match, commit=False)
         cache.flush()
-        db.commit()
+        # Retry commit for ReportKPIMapping rows in case of SQLite contention
+        import time as _time
+        from sqlalchemy.exc import OperationalError as _OpErr
+        for _attempt in range(1, 6):
+            try:
+                db.commit()
+                break
+            except _OpErr as _exc:
+                if "database is locked" in str(_exc) and _attempt < 5:
+                    _wait = 0.5 * (2 ** (_attempt - 1))
+                    logger.warning(
+                        "database is locked in ontology commit (attempt %d/5), retrying in %.1fs...",
+                        _attempt, _wait,
+                    )
+                    db.rollback()
+                    # Re-add pending mappings since rollback cleared them
+                    for kpi, match in matches_to_persist:
+                        persist_mapping(db, report_id, kpi, match, commit=False)
+                    _time.sleep(_wait)
+                else:
+                    raise
     return count
 
 

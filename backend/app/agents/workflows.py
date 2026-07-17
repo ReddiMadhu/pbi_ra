@@ -9,8 +9,11 @@ Architecture:
 Each node is a discrete AI agent step with its own reasoning.
 The state flows through the graph, accumulating context.
 """
+import logging
+import time
 from typing import TypedDict, List, Optional
 import os
+from sqlalchemy.exc import OperationalError
 from app.models.metadata import WorkbookMetadata
 from app.models.postgres import Dashboard, GovernanceRisk
 from sqlalchemy.orm import Session
@@ -289,7 +292,23 @@ def run_governance_workflow(
                 )
                 db_session.add(risk_record)
 
-    db_session.commit()
+    # Retry-commit to handle SQLite 'database is locked' during multi-file uploads
+    _logger = logging.getLogger(__name__)
+    for _attempt in range(1, 6):
+        try:
+            db_session.commit()
+            break
+        except OperationalError as _exc:
+            if "database is locked" in str(_exc) and _attempt < 5:
+                _wait = 0.5 * (2 ** (_attempt - 1))
+                _logger.warning(
+                    "database is locked in governance commit (attempt %d/5), retrying in %.1fs...",
+                    _attempt, _wait,
+                )
+                db_session.rollback()
+                time.sleep(_wait)
+            else:
+                raise
 
 
 def stream_agent_workflow(

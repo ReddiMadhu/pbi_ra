@@ -156,6 +156,7 @@ async def parse_tableau_file(
             col_to_table_map = dict(getattr(parser, "col_to_table_map", {}) or {})
 
         sync_metadata_to_db(metadata, db)
+        db.commit()
 
         # Enqueue for background ontology matching to avoid SQLite race conditions
         # and prevent HTTP request timeout during long-running matching loops.
