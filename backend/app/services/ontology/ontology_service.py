@@ -1088,10 +1088,26 @@ def process_dashboard_kpis(
 
     report_id = str(dashboard_id)
     count = 0
-    for ws_name, kpis in per_ws.items():
-        if ws_name not in dash_ws_names:
-            continue
-        for kpi in kpis:
+    matches_to_persist = []
+    # Defer write-flushing during Phase 3 LLM and Phase 2 embedding calls to avoid database write locks
+    with db.no_autoflush:
+        for ws_name, kpis in per_ws.items():
+            if ws_name not in dash_ws_names:
+                continue
+            for kpi in kpis:
+                match = match_kpi_scoped(
+                    kpi,
+                    subdomain_kpis,
+                    sector_kpis,
+                    cache,
+                    llm,
+                    sector=sector,
+                    subdomain=subdomain,
+                )
+                matches_to_persist.append((kpi, match))
+                count += 1
+
+        for kpi in source_d:
             match = match_kpi_scoped(
                 kpi,
                 subdomain_kpis,
@@ -1101,23 +1117,12 @@ def process_dashboard_kpis(
                 sector=sector,
                 subdomain=subdomain,
             )
-            persist_mapping(db, report_id, kpi, match, commit=False)
+            matches_to_persist.append((kpi, match))
             count += 1
 
-    for kpi in source_d:
-        match = match_kpi_scoped(
-            kpi,
-            subdomain_kpis,
-            sector_kpis,
-            cache,
-            llm,
-            sector=sector,
-            subdomain=subdomain,
-        )
-        persist_mapping(db, report_id, kpi, match, commit=False)
-        count += 1
-
-    if count:
+    if matches_to_persist:
+        for kpi, match in matches_to_persist:
+            persist_mapping(db, report_id, kpi, match, commit=False)
         cache.flush()
         db.commit()
     return count
@@ -1204,24 +1209,28 @@ def process_workbook_ontology(metadata, db, col_to_table_map: dict | None = None
 
         report_id = str(first_dash.id)
         orphan_count = 0
-        for ws_name, kpis in per_ws.items():
-            if ws_name in dash_ws_names:
-                continue
-            for kpi in kpis:
-                if kpi.worksheet_id != "orphan":
+        orphan_matches_to_persist = []
+        with db.no_autoflush:
+            for ws_name, kpis in per_ws.items():
+                if ws_name in dash_ws_names:
                     continue
-                match = match_kpi_scoped(
-                    kpi,
-                    subdomain_kpis,
-                    sector_kpis,
-                    cache,
-                    llm,
-                    sector=sector,
-                    subdomain=subdomain,
-                )
+                for kpi in kpis:
+                    if kpi.worksheet_id != "orphan":
+                        continue
+                    match = match_kpi_scoped(
+                        kpi,
+                        subdomain_kpis,
+                        sector_kpis,
+                        cache,
+                        llm,
+                        sector=sector,
+                        subdomain=subdomain,
+                    )
+                    orphan_matches_to_persist.append((kpi, match))
+                    orphan_count += 1
+        if orphan_matches_to_persist:
+            for kpi, match in orphan_matches_to_persist:
                 persist_mapping(db, report_id, kpi, match, commit=False)
-                orphan_count += 1
-        if orphan_count:
             cache.flush()
             db.commit()
             total += orphan_count

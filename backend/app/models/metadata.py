@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Any
 
 class ColumnMetadata(BaseModel):
     name: str
@@ -51,7 +51,7 @@ class DashboardMetadata(BaseModel):
     domain: Optional[str] = None
     line_of_business: Optional[str] = None
     user_groups: List[str] = []
-    kpis: Optional[str] = None
+    kpis: Optional[Any] = None
 
 class WorkbookMetadata(BaseModel):
     source_file: str
