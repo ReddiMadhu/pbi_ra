@@ -110,11 +110,11 @@ def _write_to_ontology_log(log_data: dict) -> None:
             lines.append(f"  - Calculation Logic: {kpi['calculation_logic']}")
             
         if log_data["cache_hit"]:
-            lines.append("\n>>> RESULT: CACHE HIT")
+            lines.append(f"\n>>> RESULT: CACHE HIT (Duration: {log_data.get('cache_duration', 0.0):.4f}s)")
             lines.append(f"  - Cached Match: {json.dumps(log_data['final_result'])}")
         else:
             p1 = log_data["phases"]["phase1"]
-            lines.append("\n--- PHASE 1: EXACT & ALIAS MATCHING ---")
+            lines.append(f"\n--- PHASE 1: EXACT & ALIAS MATCHING (Duration: {p1.get('duration', 0.0):.4f}s) ---")
             lines.append(f"  - Executed: {p1['executed']}")
             if p1["executed"]:
                 lines.append(f"  - Matched: {p1['matched']}")
@@ -123,7 +123,7 @@ def _write_to_ontology_log(log_data: dict) -> None:
                     
             if not p1["matched"]:
                 p2 = log_data["phases"]["phase2"]
-                lines.append("\n--- PHASE 2: EMBEDDING SIMILARITY FILTER ---")
+                lines.append(f"\n--- PHASE 2: EMBEDDING SIMILARITY FILTER (Duration: {p2.get('duration', 0.0):.4f}s) ---")
                 lines.append(f"  - Executed: {p2['executed']}")
                 if p2["executed"]:
                     lines.append("  - Top Candidates:")
@@ -133,7 +133,7 @@ def _write_to_ontology_log(log_data: dict) -> None:
                     
                 if not p2["matched"] and not (p2["result"] and p2["result"].get("mapping_status") == "not_found"):
                     p3 = log_data["phases"]["phase3"]
-                    lines.append("\n--- PHASE 3: LLM JUDGE DECISION ---")
+                    lines.append(f"\n--- PHASE 3: LLM JUDGE DECISION (Duration: {p3.get('duration', 0.0):.4f}s) ---")
                     lines.append(f"  - Executed: {p3['executed']}")
                     if p3["executed"]:
                         if p3.get("skipped_reason"):
@@ -241,6 +241,40 @@ def build_ontology_match_indexes(ontology_kpis: list[dict]) -> dict:
     return {"name": name_index, "alias": alias_index, "lineage": lineage_index}
 
 
+def _clean_ws_name(ws_name: str | None) -> str:
+    if not ws_name:
+        return ""
+    # Strip common visual prefixes (e.g. "KPI - ", "Sheet ")
+    cleaned = re.sub(r"^(kpi\s*-\s*|kpi:\s*|sheet\s*|table\s*-\s*)", "", ws_name, flags=re.IGNORECASE)
+    # Remove special characters
+    cleaned = re.sub(r"[^a-zA-Z0-9\s]", "", cleaned)
+    return " ".join(cleaned.split()).lower()
+
+
+def _generate_virtual_aliases(name_lower: str, ws_name: str | None) -> list[str]:
+    if not ws_name:
+        return []
+    v_aliases = []
+    clean_ws = _clean_ws_name(ws_name)
+    if len(clean_ws) > 3:
+        v_aliases.append(clean_ws)
+        v_aliases.append(f"{clean_ws} {name_lower}")
+        v_aliases.append(f"{name_lower} by {clean_ws}")
+    
+    # Try splitting by common delimiters like '|', '-', '/'
+    parts = [p.strip() for p in re.split(r"[|\-/]", ws_name) if p.strip()]
+    clean_parts = [_clean_ws_name(p) for p in parts]
+    clean_parts = [cp for cp in clean_parts if len(cp) > 2]
+    if len(clean_parts) > 1:
+        p1, p2 = clean_parts[0], clean_parts[1]
+        v_aliases.append(f"{p1} {p2}")
+        v_aliases.append(f"{p2} {p1}")
+        v_aliases.append(f"{p1} by {p2}")
+        v_aliases.append(f"{p2} by {p1}")
+        
+    return list(set(v_aliases))
+
+
 def _phase1_match(
     kpi: ExtractedKPI,
     ontology_kpis: list[dict],
@@ -280,6 +314,21 @@ def _phase1_match(
                     "confidence_score": 1.0,
                     "similarity_rationale": "Phase 1 lineage+agg match",
                     "confidence_rationale": "Phase 1 lineage+agg match",
+                    "model_used": kpi.extraction_method,
+                    "mapping_status": "auto_accepted",
+                }
+        
+        # Virtual alias matching
+        v_aliases = _generate_virtual_aliases(name_lower, getattr(kpi, "worksheet_name", None))
+        for v_alias in v_aliases:
+            ok = indexes["alias"].get(v_alias) or indexes["name"].get(v_alias)
+            if ok:
+                return {
+                    "matched_kpi_id": ok["kpi_id"],
+                    "similarity_score": 0.95,
+                    "confidence_score": 0.90,
+                    "similarity_rationale": f"Virtual alias match: '{v_alias}'",
+                    "confidence_rationale": "Phase 1 virtual alias match",
                     "model_used": kpi.extraction_method,
                     "mapping_status": "auto_accepted",
                 }
@@ -343,6 +392,22 @@ def _phase1_match(
                 "model_used": kpi.extraction_method,
                 "mapping_status": "auto_accepted",
             }
+    
+    # Virtual alias fallback without index
+    v_aliases = _generate_virtual_aliases(name_lower, getattr(kpi, "worksheet_name", None))
+    for ok in ontology_kpis:
+        for alias in [ok.get("name", "")] + (ok.get("aliases") or []):
+            alias_lower = str(alias).strip().lower()
+            if alias_lower in v_aliases:
+                return {
+                    "matched_kpi_id": ok["kpi_id"],
+                    "similarity_score": 0.95,
+                    "confidence_score": 0.90,
+                    "similarity_rationale": f"Virtual alias match: '{alias_lower}'",
+                    "confidence_rationale": "Phase 1 virtual alias match",
+                    "model_used": kpi.extraction_method,
+                    "mapping_status": "auto_accepted",
+                }
     # Fuzzy name matching if sequential exact/alias/lineage failed
     for ok in ontology_kpis:
         ok_name = ok.get("name", "")
@@ -388,6 +453,7 @@ def match_kpi_to_ontology(
     scope_sector: str | None = None,
     scope_subdomain: str | None = None,
 ) -> dict:
+    import time
     global _phase3_call_counter, _last_phase3_candidates
     embedding_fn = embedding_fn or compute_embedding
 
@@ -406,6 +472,8 @@ def match_kpi_to_ontology(
             worksheet_name=getattr(kpi, 'worksheet_name', None),
             mark_type=getattr(kpi, 'mark_type', None),
             calculation_logic=getattr(kpi, 'calculation_logic', None),
+            dimensions=getattr(kpi, 'dimensions', []),
+            filters=getattr(kpi, 'filters', []),
         )
 
     log_data = {
@@ -425,15 +493,17 @@ def match_kpi_to_ontology(
             "sector": scope_sector,
             "subdomain": scope_subdomain,
         },
+        "cache_duration": 0.0,
         "phases": {
-            "phase1": {"executed": False, "matched": False, "result": None},
-            "phase2": {"executed": False, "matched": False, "result": None, "top_candidates": []},
-            "phase3": {"executed": False, "matched": False, "result": None, "llm_prompt": None, "llm_response": None, "candidates": []}
+            "phase1": {"executed": False, "matched": False, "result": None, "duration": 0.0},
+            "phase2": {"executed": False, "matched": False, "result": None, "top_candidates": [], "duration": 0.0},
+            "phase3": {"executed": False, "matched": False, "result": None, "llm_prompt": None, "llm_response": None, "candidates": [], "duration": 0.0}
         },
         "final_result": None,
         "cache_hit": False
     }
 
+    t0 = time.time()
     cached = cache.get(
         kpi.name,
         kpi.resolved_lineage,
@@ -441,6 +511,8 @@ def match_kpi_to_ontology(
         scope_sector,
         scope_subdomain,
     )
+    log_data["cache_duration"] = time.time() - t0
+
     if cached:
         cached["mapping_status"] = _status_from_confidence(cached.get("confidence_score") or 0.0)
         log_data["cache_hit"] = True
@@ -449,7 +521,10 @@ def match_kpi_to_ontology(
         return cached
 
     log_data["phases"]["phase1"]["executed"] = True
+    t1 = time.time()
     phase1 = _phase1_match(kpi, ontology_kpis, indexes)
+    log_data["phases"]["phase1"]["duration"] = time.time() - t1
+
     if phase1:
         log_data["phases"]["phase1"]["matched"] = True
         log_data["phases"]["phase1"]["result"] = phase1
@@ -469,7 +544,21 @@ def match_kpi_to_ontology(
 
     # Phase 2: embedding pre-filter; Phase 3 receives all slice candidates >= threshold
     log_data["phases"]["phase2"]["executed"] = True
-    kpi_text = f"{kpi.name} {kpi.definition} {' '.join(kpi.resolved_lineage)}"
+    t2 = time.time()
+    
+    text_parts = [kpi.name]
+    if kpi.definition:
+        text_parts.append(kpi.definition)
+    if getattr(kpi, "worksheet_name", None):
+        text_parts.append(f"displayed on worksheet {kpi.worksheet_name}")
+    if getattr(kpi, "dimensions", None) and len(kpi.dimensions) > 0:
+        text_parts.append(f"broken down by {' '.join(kpi.dimensions)}")
+    if getattr(kpi, "filters", None) and len(kpi.filters) > 0:
+        text_parts.append(f"filtered by {' '.join(kpi.filters)}")
+    if kpi.resolved_lineage:
+        text_parts.append(" ".join(kpi.resolved_lineage))
+        
+    kpi_text = " ".join(text_parts)
     kpi_emb = embedding_fn(kpi_text)
     ranked: list[tuple[float, dict]] = []
     for ok in ontology_kpis:
@@ -506,6 +595,8 @@ def match_kpi_to_ontology(
         for sim, ok in eligible
     ]
 
+    log_data["phases"]["phase2"]["duration"] = time.time() - t2
+
     if best_sim >= 0.95:
         result = {
             "matched_kpi_id": best_id,
@@ -535,6 +626,7 @@ def match_kpi_to_ontology(
     # Phase 3: LLM judge on top-N candidates in scoped slice (sim >= 0.50)
     log_data["phases"]["phase3"]["executed"] = True
     log_data["phases"]["phase3"]["candidates"] = llm_candidates
+    t3 = time.time()
 
     if _phase3_call_counter >= MAX_PHASE3_CALLS_PER_EXTRACTION or not llm:
         conf = best_sim
@@ -550,6 +642,7 @@ def match_kpi_to_ontology(
         log_data["phases"]["phase3"]["skipped_reason"] = "LLM cap reached or LLM not provided"
         log_data["phases"]["phase3"]["result"] = result
         log_data["final_result"] = result
+        log_data["phases"]["phase3"]["duration"] = time.time() - t3
         _write_to_ontology_log(log_data)
 
         cache.set(
@@ -582,10 +675,19 @@ def match_kpi_to_ontology(
         report_ctx["mark_type"] = kpi.mark_type
     if getattr(kpi, "calculation_logic", None):
         report_ctx["calculation_logic"] = kpi.calculation_logic
+    if getattr(kpi, "worksheet_name", None):
+        report_ctx["worksheet_context"] = kpi.worksheet_name
+    if getattr(kpi, "dimensions", None) and len(kpi.dimensions) > 0:
+        report_ctx["visual_breakdown_dimensions"] = kpi.dimensions
+    if getattr(kpi, "filters", None) and len(kpi.filters) > 0:
+        report_ctx["visual_filters"] = kpi.filters
+        
     prompt = f"""Judge if report KPI maps to a canonical ontology KPI.
 Report KPI: {json.dumps(report_ctx)}
 Candidates: {json.dumps(candidates)}
-Return JSON: matched_kpi_id (or null), similarity_score, confidence_score, rationale"""
+Return JSON: matched_kpi_id (or null), similarity_score, confidence_score, rationale
+
+Use the worksheet_context and visual_filters to guide matching when the raw metric name is generic."""
 
     log_data["phases"]["phase3"]["llm_prompt"] = prompt
 
@@ -662,6 +764,7 @@ Return JSON: matched_kpi_id (or null), similarity_score, confidence_score, ratio
         log_data["phases"]["phase3"]["result"] = result
         log_data["final_result"] = result
 
+    log_data["phases"]["phase3"]["duration"] = time.time() - t3
     _write_to_ontology_log(log_data)
 
     cache.set(
@@ -718,7 +821,20 @@ def match_kpi_scoped(
     # Pre-filter: rank cross-subdomain candidates by embedding similarity,
     # keep only top N to limit LLM Phase 3 budget
     _emb_fn = embedding_fn or compute_embedding
-    kpi_text = f"{kpi.name} {kpi.definition} {' '.join(kpi.resolved_lineage)}"
+    
+    text_parts = [kpi.name]
+    if kpi.definition:
+        text_parts.append(kpi.definition)
+    if getattr(kpi, "worksheet_name", None):
+        text_parts.append(f"displayed on worksheet {kpi.worksheet_name}")
+    if getattr(kpi, "dimensions", None) and len(kpi.dimensions) > 0:
+        text_parts.append(f"broken down by {' '.join(kpi.dimensions)}")
+    if getattr(kpi, "filters", None) and len(kpi.filters) > 0:
+        text_parts.append(f"filtered by {' '.join(kpi.filters)}")
+    if kpi.resolved_lineage:
+        text_parts.append(" ".join(kpi.resolved_lineage))
+        
+    kpi_text = " ".join(text_parts)
     kpi_emb = _emb_fn(kpi_text)
     scored = []
     for ok in sector_only:
@@ -942,6 +1058,34 @@ def process_dashboard_kpis(
         existing_names.add(kpi.name.lower())
         source_d.append(kpi)
 
+    # Batch embed all dashboard KPIs to minimize individual API roundtrips
+    kpis_to_embed = []
+    for ws_name, kpis in per_ws.items():
+        if ws_name not in dash_ws_names:
+            continue
+        kpis_to_embed.extend(kpis)
+    kpis_to_embed.extend(source_d)
+
+    if kpis_to_embed:
+        from app.services.ontology.embedding_service import compute_embeddings_batch
+        texts_to_embed = []
+        for k in kpis_to_embed:
+            norm_name = normalize_kpi_name(k.name)
+            parts = [norm_name]
+            if k.definition:
+                parts.append(k.definition)
+            if getattr(k, "worksheet_name", None):
+                parts.append(f"displayed on worksheet {k.worksheet_name}")
+            if getattr(k, "dimensions", None) and len(k.dimensions) > 0:
+                parts.append(f"broken down by {' '.join(k.dimensions)}")
+            if getattr(k, "filters", None) and len(k.filters) > 0:
+                parts.append(f"filtered by {' '.join(k.filters)}")
+            if k.resolved_lineage:
+                parts.append(" ".join(k.resolved_lineage))
+            texts_to_embed.append(" ".join(parts))
+        logger.info("Batch embedding %d dashboard KPIs...", len(texts_to_embed))
+        compute_embeddings_batch(texts_to_embed)
+
     report_id = str(dashboard_id)
     count = 0
     for ws_name, kpis in per_ws.items():
@@ -1030,6 +1174,34 @@ def process_workbook_ontology(metadata, db, col_to_table_map: dict | None = None
             legacy_domain=first_dash.domain_classification,
         )
         subdomain_kpis, sector_kpis = load_scoped_ontology_for_dashboard(db, sector, subdomain)
+        # Batch embed all orphan KPIs to minimize individual API roundtrips
+        orphan_kpis_to_embed = []
+        for ws_name, kpis in per_ws.items():
+            if ws_name in dash_ws_names:
+                continue
+            for kpi in kpis:
+                if kpi.worksheet_id == "orphan":
+                    orphan_kpis_to_embed.append(kpi)
+        if orphan_kpis_to_embed:
+            from app.services.ontology.embedding_service import compute_embeddings_batch
+            texts_to_embed = []
+            for k in orphan_kpis_to_embed:
+                norm_name = normalize_kpi_name(k.name)
+                parts = [norm_name]
+                if k.definition:
+                    parts.append(k.definition)
+                if getattr(k, "worksheet_name", None):
+                    parts.append(f"displayed on worksheet {k.worksheet_name}")
+                if getattr(k, "dimensions", None) and len(k.dimensions) > 0:
+                    parts.append(f"broken down by {' '.join(k.dimensions)}")
+                if getattr(k, "filters", None) and len(k.filters) > 0:
+                    parts.append(f"filtered by {' '.join(k.filters)}")
+                if k.resolved_lineage:
+                    parts.append(" ".join(k.resolved_lineage))
+                texts_to_embed.append(" ".join(parts))
+            logger.info("Batch embedding %d orphan KPIs...", len(texts_to_embed))
+            compute_embeddings_batch(texts_to_embed)
+
         report_id = str(first_dash.id)
         orphan_count = 0
         for ws_name, kpis in per_ws.items():
@@ -1077,3 +1249,43 @@ def enrich_with_ontology_inventory(report_id: str | int, db: Session) -> dict | 
         out["ontology_sector"] = dash.ontology_sector
         out["ontology_subdomain"] = dash.ontology_subdomain
     return out
+
+
+import queue
+import threading
+
+_ontology_queue = queue.Queue()
+_worker_thread = None
+
+def _ontology_worker():
+    logger.info("Ontology matching background worker thread started.")
+    while True:
+        try:
+            job = _ontology_queue.get()
+            if job is None:
+                break
+            metadata, col_to_table_map = job
+            logger.info("Processing background ontology matching for workbook: %s", metadata.source_file)
+            
+            from app.db.session import SessionLocal
+            db = SessionLocal()
+            try:
+                process_workbook_ontology(metadata, db, col_to_table_map)
+                logger.info("Background ontology matching completed for workbook: %s", metadata.source_file)
+            except Exception as e:
+                logger.error("Error processing ontology in background for %s: %s", metadata.source_file, e, exc_info=True)
+            finally:
+                db.close()
+                _ontology_queue.task_done()
+        except Exception as e:
+            logger.error("Fatal error in ontology worker loop: %s", e)
+
+def enqueue_ontology_matching(metadata, col_to_table_map):
+    global _worker_thread
+    if _worker_thread is None or not _worker_thread.is_alive():
+        _worker_thread = threading.Thread(target=_ontology_worker, daemon=True, name="OntologyWorker")
+        _worker_thread.start()
+    
+    _ontology_queue.put((metadata, col_to_table_map))
+    logger.info("Workbook %s enqueued for background ontology matching.", metadata.source_file)
+

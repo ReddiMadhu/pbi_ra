@@ -22,10 +22,14 @@ class OntologyCache:
         sector: str | None = None,
         subdomain: str | None = None,
     ) -> str:
+        # Normalize: treat UNKNOWN/NONE as empty for cache purposes
+        agg = (aggregation or "").upper()
+        if agg in ("UNKNOWN", "NONE", ""):
+            agg = ""
         payload = (
             (kpi_name or "").strip().lower()
             + json.dumps(sorted(lineage), sort_keys=True)
-            + (aggregation or "").upper()
+            + agg
             + (sector or "")
             + (subdomain or "")
             + self.ontology_version

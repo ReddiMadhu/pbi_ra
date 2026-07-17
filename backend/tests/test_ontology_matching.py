@@ -485,7 +485,7 @@ def test_ai_summary_extraction_and_dedup():
     kpis = extract_from_ai_summary(ai)
     assert len(kpis) == 2
     assert kpis[0].extraction_method == "llm_summary"
-    assert kpis[0].aggregation_type == "UNKNOWN"
+    assert kpis[0].aggregation_type == "SUM"  # inferred from calculation_logic "SUM(Paid)/SUM(Earned)"
     assert kpis[0].resolved_lineage == []
     assert "SUM(Paid)" in (kpis[0].calculation_logic or "")
 

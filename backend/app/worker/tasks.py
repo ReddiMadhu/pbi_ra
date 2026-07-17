@@ -52,8 +52,14 @@ def scan_repository_task(directory_path: str, scan_id: int):
                         with TableauParser(file_path) as parser:
                             metadata = parser.parse()
                             metadata.source_file = file
+                            col_to_table_map = dict(getattr(parser, "col_to_table_map", {}) or {})
 
                         sync_metadata_to_db(metadata, db)
+                        try:
+                            from app.services.ontology.ontology_service import enqueue_ontology_matching
+                            enqueue_ontology_matching(metadata, col_to_table_map)
+                        except Exception:
+                            pass
                         processed_files += 1
                         scan_record.processed_files = processed_files
                         db.commit()

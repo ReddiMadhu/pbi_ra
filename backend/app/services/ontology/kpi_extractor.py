@@ -168,6 +168,8 @@ class ExtractedKPI:
     calculation_logic: str | None = None
     source_description: str | None = None
     is_dynamic: bool = False
+    dimensions: list[str] = field(default_factory=list)
+    filters: list[str] = field(default_factory=list)
 
 
 def _lineage_key(lineage: list[str], aggregation: str) -> str:
@@ -231,6 +233,8 @@ def _extract_named_on_worksheet(
 ) -> list[ExtractedKPI]:
     results: list[ExtractedKPI] = []
     mark_type = getattr(ws, "mark_type", None) or None
+    dims = list(getattr(ws, "rows", []) or []) + list(getattr(ws, "columns", []) or [])
+    filts = list(getattr(ws, "filters_and_marks", []) or [])
     for cf_name in getattr(ws, "used_calculated_fields", []) or []:
         meta = calc_map.get(str(cf_name).lower())
         if not meta:
@@ -244,6 +248,8 @@ def _extract_named_on_worksheet(
                     worksheet_id=worksheet_id,
                     worksheet_name=worksheet_name,
                     mark_type=mark_type,
+                    dimensions=dims,
+                    filters=filts,
                 )
             )
             continue
@@ -257,6 +263,8 @@ def _extract_named_on_worksheet(
                 worksheet_id=worksheet_id,
                 worksheet_name=worksheet_name,
                 mark_type=mark_type,
+                dimensions=dims,
+                filters=filts,
             )
         )
     return results
@@ -272,6 +280,8 @@ def _extract_dimension_breakdowns(
     if not measure_bindings:
         return []
 
+    dims = list(getattr(ws, "rows", []) or []) + list(getattr(ws, "columns", []) or [])
+    filts = list(getattr(ws, "filters_and_marks", []) or [])
     measure_fields = {str(b.get("field", "")).lower() for b in measure_bindings if b.get("field")}
     shelf_fields = list(getattr(ws, "rows", []) or []) + list(getattr(ws, "columns", []) or [])
     dimensions: list[str] = []
@@ -315,6 +325,8 @@ def _extract_dimension_breakdowns(
                     worksheet_id=worksheet_id,
                     worksheet_name=worksheet_name,
                     mark_type=mark_type,
+                    dimensions=dims,
+                    filters=filts,
                 )
             )
     return results
@@ -323,6 +335,8 @@ def _extract_dimension_breakdowns(
 def _extract_visual_bindings(ws: Any, worksheet_id: str | None, worksheet_name: str) -> list[ExtractedKPI]:
     results: list[ExtractedKPI] = []
     mark_type = getattr(ws, "mark_type", None) or "Unknown"
+    dims = list(getattr(ws, "rows", []) or []) + list(getattr(ws, "columns", []) or [])
+    filts = list(getattr(ws, "filters_and_marks", []) or [])
     for binding in getattr(ws, "measure_bindings", []) or []:
         if isinstance(binding, dict):
             lineage = binding.get("lineage") or binding.get("field", "")
@@ -346,6 +360,8 @@ def _extract_visual_bindings(ws: Any, worksheet_id: str | None, worksheet_name: 
                     worksheet_id=worksheet_id,
                     worksheet_name=worksheet_name,
                     mark_type=mark_type,
+                    dimensions=dims,
+                    filters=filts,
                 )
             )
     return results
@@ -360,6 +376,8 @@ def _extract_mark_card_measures(
     """Source E: measures on Color/Size/Text/Tooltip/Detail via filters_and_marks."""
     results: list[ExtractedKPI] = []
     mark_type = getattr(ws, "mark_type", None) or "Unknown"
+    dims = list(getattr(ws, "rows", []) or []) + list(getattr(ws, "columns", []) or [])
+    filts = list(getattr(ws, "filters_and_marks", []) or [])
     seen: set[tuple[str, str]] = set()
 
     for field in getattr(ws, "filters_and_marks", []) or []:
@@ -388,9 +406,34 @@ def _extract_mark_card_measures(
                 worksheet_id=worksheet_id,
                 worksheet_name=worksheet_name,
                 mark_type=mark_type,
+                dimensions=dims,
+                filters=filts,
             )
         )
     return results
+
+
+def _infer_agg_from_text(text: str) -> str:
+    """Try to extract an aggregation function from free-form text like 'AVG(IGO Aging)'."""
+    if not text:
+        return "UNKNOWN"
+    m = AGG_PATTERN.search(text)
+    if m:
+        return _normalize_agg(m.group(1))
+    # Fallback: check for common textual patterns
+    text_lower = text.lower()
+    for pattern, agg in [
+        ("average ", "AVG"), ("avg ", "AVG"),
+        ("sum of ", "SUM"), ("total ", "SUM"),
+        ("count of ", "COUNT"), ("number of ", "COUNT"),
+        ("distinct count", "COUNTD"),
+        ("median ", "MEDIAN"),
+        ("maximum ", "MAX"), ("max ", "MAX"),
+        ("minimum ", "MIN"), ("min ", "MIN"),
+    ]:
+        if pattern in text_lower:
+            return agg
+    return "UNKNOWN"
 
 
 def extract_from_ai_summary(ai_summary: str | dict | None) -> list[ExtractedKPI]:
@@ -412,11 +455,12 @@ def extract_from_ai_summary(ai_summary: str | dict | None) -> list[ExtractedKPI]
     results: list[ExtractedKPI] = []
     for k in data.get("kpis") or []:
         if isinstance(k, str) and k.strip():
+            inferred_agg = _infer_agg_from_text(k.strip())
             results.append(
                 ExtractedKPI(
                     name=k.strip(),
                     resolved_lineage=[],
-                    aggregation_type="UNKNOWN",
+                    aggregation_type=inferred_agg,
                     definition=k.strip(),
                     extraction_method="llm_summary",
                 )
@@ -434,11 +478,14 @@ def extract_from_ai_summary(ai_summary: str | dict | None) -> list[ExtractedKPI]
             def_parts.append(calc_logic)
         if source_desc:
             def_parts.append(source_desc)
+        inferred_agg = _infer_agg_from_text(
+            calc_logic or definition or name
+        )
         results.append(
             ExtractedKPI(
                 name=name,
                 resolved_lineage=[],
-                aggregation_type="UNKNOWN",
+                aggregation_type=inferred_agg,
                 definition=" | ".join(def_parts),
                 extraction_method="llm_summary",
                 calculation_logic=calc_logic,

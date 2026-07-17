@@ -157,19 +157,18 @@ async def parse_tableau_file(
 
         sync_metadata_to_db(metadata, db)
 
-        # Fix #3 & #4: Run ontology extraction inline (same session)
-        # instead of a background task to avoid SQLite race conditions
-        # and silent exception swallowing.
+        # Enqueue for background ontology matching to avoid SQLite race conditions
+        # and prevent HTTP request timeout during long-running matching loops.
         try:
-            from app.services.ontology.ontology_service import process_workbook_ontology
-            process_workbook_ontology(metadata, db, col_to_table_map)
+            from app.services.ontology.ontology_service import enqueue_ontology_matching
+            enqueue_ontology_matching(metadata, col_to_table_map)
         except Exception as ont_err:
             import logging
             logging.getLogger(__name__).error(
-                "Ontology extraction failed for %s: %s",
+                "Failed to enqueue ontology matching for %s: %s",
                 file.filename, ont_err, exc_info=True,
             )
-            # Non-fatal: file parsing succeeded, ontology will be empty
+            # Non-fatal: file parsing succeeded, ontology matching enqueuing failed
 
         new_scan = ScanHistory(
             directory_path=file.filename,
