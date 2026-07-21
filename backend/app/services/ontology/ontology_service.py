@@ -58,6 +58,7 @@ from app.services.ontology.embedding_service import (
     cosine_similarity,
     compute_embedding,
     embed_ontology_kpis,
+    is_using_hash_fallback,
 )
 from app.services.ontology.kpi_extractor import (
     ExtractedKPI,
@@ -195,12 +196,34 @@ def _parse_lineage(raw: str | None) -> list[str]:
         return []
 
 
+AUTO_APPROVE_THRESHOLD = float(os.getenv("GOVERNANCE_AUTO_APPROVE_THRESHOLD", "0.95"))
+REVIEW_THRESHOLD = float(os.getenv("GOVERNANCE_REVIEW_THRESHOLD", "0.80"))
+
+
 def _status_from_confidence(confidence: float) -> str:
-    if confidence >= 0.90:
+    if confidence >= AUTO_APPROVE_THRESHOLD:
         return "auto_accepted"
-    if confidence >= 0.50:
+    if confidence >= REVIEW_THRESHOLD:
         return "pending_review"
     return "not_found"
+
+
+def _classify_mapping_type(rationale: str, confidence: float) -> str:
+    """Derive a structured mapping_type from the phase rationale string."""
+    r = (rationale or "").lower()
+    if "exact" in r and "match" in r:
+        return "exact"
+    if "alias" in r:
+        return "alias"
+    if "lineage" in r and "agg" in r:
+        return "formula_equivalent"
+    if "fuzzy" in r:
+        return "alias"  # fuzzy is a variant of alias matching
+    if "embedding" in r or "llm" in r or "phase 2" in r or "phase 3" in r:
+        return "semantic_match"
+    if confidence < REVIEW_THRESHOLD:
+        return "no_match"
+    return "semantic_match"
 
 
 def _agg_key(aggregation: str) -> str:
@@ -213,6 +236,408 @@ def _agg_key(aggregation: str) -> str:
     return agg
 
 
+# Additive totals/counts must not auto-map to averages or rates (and vice versa).
+_AGG_FAMILY_AVERAGE = frozenset({"AVG", "MEDIAN", "AVERAGE"})
+_AGG_FAMILY_ADDITIVE = frozenset({"SUM", "COUNT", "COUNTD", "CNT"})
+_AGG_FAMILY_RATE = frozenset({"PCT", "RATIO"})
+_AGG_FAMILY_TEMPORAL = frozenset({"MONTH-TRUNC", "YEAR-TRUNC", "DATETRUNC", "QUARTER-TRUNC"})
+
+_NON_MAPPABLE_NAME_RE = re.compile(
+    r"^(?:"
+    r"month-trunc\b|year-trunc\b|datetrunc\b|"
+    r"last\s+\d+\s+years?\b|"
+    r"claim number$|"
+    r"select kpi$|"
+    r"currency$|"
+    r"accelerator log$"
+    r")",
+    re.IGNORECASE,
+)
+_DERIVED_HELPER_RE = re.compile(
+    r"^(Rank|Performance\s+Level)\s*\|\s*",
+    re.IGNORECASE,
+)
+
+_DEBUG_LOG_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))),
+    "debug-482d96.log",
+)
+
+
+def _agent_debug_log(hypothesis_id: str, location: str, message: str, data: dict | None = None) -> None:
+    # #region agent log
+    try:
+        payload = {
+            "sessionId": "482d96",
+            "runId": "post-fix",
+            "hypothesisId": hypothesis_id,
+            "location": location,
+            "message": message,
+            "data": data or {},
+            "timestamp": int(datetime.utcnow().timestamp() * 1000),
+        }
+        with open(_DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+    # #endregion
+
+
+_OPAQUE_CALC_RE = re.compile(
+    r"(?:^|\b)(?:sum|avg|count|countd|min|max)?\s*of\s*calculation_\d+\b|^calculation_\d+\b",
+    re.IGNORECASE,
+)
+_MONEY_HINT_RE = re.compile(
+    r"\b(amount|budget|bugdet|bdgt|premium|revenue|sales|invoice_amount|achieved_)\b",
+    re.IGNORECASE,
+)
+
+
+def is_opaque_calculation_kpi(kpi: ExtractedKPI, *, original_name: str | None = None) -> bool:
+    """Tableau internal Calculation_<id> measures lack business meaning for mapping."""
+    text = f"{original_name or ''} {kpi.name or ''}".strip()
+    return bool(_OPAQUE_CALC_RE.search(text))
+
+
+def _looks_like_money_kpi(kpi: ExtractedKPI | None, *, original_name: str | None = None) -> bool:
+    if kpi is None:
+        return False
+    text = " ".join(
+        [
+            original_name or "",
+            kpi.name or "",
+            getattr(kpi, "definition", None) or "",
+            " ".join(kpi.resolved_lineage or []),
+        ]
+    )
+    return bool(_MONEY_HINT_RE.search(text))
+
+
+def aggregations_compatible(
+    report_agg: str | None,
+    ontology_agg: str | None,
+    *,
+    report_kpi: ExtractedKPI | None = None,
+    original_name: str | None = None,
+) -> bool:
+    """Return False when report vs ontology aggregations are mathematically incompatible.
+
+    SUM↔PCT is allowed only when the report looks like a true ratio formula
+    (e.g. SUM(losses)/SUM(premium)). Plain SUM(field) must not map to PCT rates.
+    Money SUM totals must not map to COUNT ontology KPIs.
+    """
+    r = _agg_key(report_agg or "UNKNOWN")
+    o = _agg_key(ontology_agg or "UNKNOWN")
+    if r in ("UNKNOWN", "NONE", "") or o in ("UNKNOWN", "NONE", ""):
+        return True
+    if r in _AGG_FAMILY_TEMPORAL and o not in _AGG_FAMILY_TEMPORAL:
+        return False
+    # Totals/averages must not cross-map
+    if r in _AGG_FAMILY_AVERAGE and o in _AGG_FAMILY_ADDITIVE:
+        return False
+    if r in _AGG_FAMILY_ADDITIVE and o in _AGG_FAMILY_AVERAGE:
+        return False
+    # Counts must not map to rates
+    count_like = frozenset({"COUNT", "COUNTD", "CNT"})
+    if r in count_like and o in _AGG_FAMILY_RATE:
+        return False
+    if r in _AGG_FAMILY_RATE and o in count_like:
+        return False
+    # SUM totals must not map to PCT unless formula/name indicates a ratio
+    if r == "SUM" and o in _AGG_FAMILY_RATE and not _looks_like_ratio_kpi(report_kpi):
+        return False
+    if r in _AGG_FAMILY_RATE and o == "SUM" and not _looks_like_ratio_kpi(report_kpi):
+        return False
+    # Dollar/budget SUM must not map to COUNT KPIs (e.g. Achieved_Cross_Sell → LOB Cross-sell COUNT)
+    if r == "SUM" and o in count_like and _looks_like_money_kpi(report_kpi, original_name=original_name):
+        return False
+    return True
+
+
+def _looks_like_ratio_kpi(kpi: ExtractedKPI | None) -> bool:
+    if kpi is None:
+        return False
+    text = " ".join(
+        [
+            kpi.name or "",
+            getattr(kpi, "definition", None) or "",
+            getattr(kpi, "calculation_logic", None) or "",
+        ]
+    ).lower()
+    if "/" in text or "÷" in text:
+        return True
+    return bool(re.search(r"\b(ratio|%|pct|percent|per\s+exposure)\b", text))
+
+
+_BUDGET_TOKEN_RE = re.compile(r"\b(budget|bugdet|bdgt)\b", re.I)
+_BUDGET_FALSE_FRIEND_ONTO_RE = re.compile(
+    r"premium\s+opportunity|rounding\s+premium|renewal\s+premium|"
+    r"marketing\s+spend|net\s+sales|"
+    r"\blob\s+cross[-\s]?sell\b|cross\s+sell\s+total",
+    re.I,
+)
+
+# Report-token → forbidden ontology-token pairs (business false friends)
+_SEMANTIC_CONFLICTS: list[tuple[re.Pattern[str], re.Pattern[str], str]] = [
+    (
+        re.compile(r"invoice", re.I),
+        re.compile(r"\b(outbound\s+call|call\s+attempt|calls?\b|mail|audit)", re.I),
+        "invoice count must not map to call/mail/audit KPIs",
+    ),
+    (
+        re.compile(r"meeting", re.I),
+        re.compile(
+            r"scheduled\s+calls|outbound\s+call|call\s+attempt|"
+            r"no of mails|\bmails?\b|\bmail\b",
+            re.I,
+        ),
+        "meeting count must not map to scheduled/outbound call or mail KPIs",
+    ),
+    (
+        re.compile(r"claim[_\s]?amt|claim\s+amount|total\s+claim", re.I),
+        re.compile(r"settlement\s+amount|disputed\s+amount", re.I),
+        "claim amount must not map to settlement/disputed amount",
+    ),
+    (
+        re.compile(r"household[_\s]?income", re.I),
+        re.compile(r"loss\s+severity|claims?\s+severity|severity", re.I),
+        "household income must not map to claim severity KPIs",
+    ),
+    (
+        re.compile(r"household[_\s]?income", re.I),
+        re.compile(
+            r"account\s+size|average\s+premium\s+per\s+(?:customer|policy|account)|"
+            r"avg\s+premium\s+per|average\s+account",
+            re.I,
+        ),
+        "household income must not map to account size / average premium KPIs",
+    ),
+    (
+        re.compile(
+            r"revenue_amount|revenue\s+amount|gcrm_opportunity|"
+            r"open\s+oppty|opportunit(?:y|ies).{0,40}revenue|revenue.{0,40}opportunit",
+            re.I,
+        ),
+        re.compile(r"\b(net\s+sales|total\s+marketing\s+spend|marketing\s+spend)\b", re.I),
+        "opportunity/pipeline revenue must not map to net sales or marketing spend",
+    ),
+    (
+        re.compile(r"\b(opportunity|opportunities|revenue\s+amount)\b", re.I),
+        re.compile(r"\b(open\s+activities|top of funnel)\b", re.I),
+        "opportunity/revenue must not map to funnel/activity KPIs",
+    ),
+    (
+        re.compile(r"\bopportunit", re.I),
+        re.compile(r"quote\s+count|\bquotes?\b", re.I),
+        "opportunity count must not map to quote count KPIs",
+    ),
+    (
+        re.compile(r"\bstage\b", re.I),
+        re.compile(r"cancellation\s+reason", re.I),
+        "sales stage distribution must not map to cancellation reason",
+    ),
+]
+
+
+def _report_onto_texts(
+    kpi: ExtractedKPI, ok: dict, *, original_name: str | None = None
+) -> tuple[str, str]:
+    report_text = " ".join(
+        [
+            original_name or "",
+            kpi.name or "",
+            getattr(kpi, "definition", None) or "",
+            " ".join(kpi.resolved_lineage or []),
+            getattr(kpi, "worksheet_name", None) or "",
+        ]
+    )
+    onto_text = " ".join(
+        [
+            str(ok.get("name") or ""),
+            str(ok.get("definition") or ""),
+            " ".join(str(a) for a in (ok.get("aliases") or [])),
+        ]
+    )
+    return report_text, onto_text
+
+
+def has_semantic_conflict(kpi: ExtractedKPI, ok: dict, *, original_name: str | None = None) -> str | None:
+    """Return conflict reason if report and ontology KPIs are known false friends."""
+    report_text, onto_text = _report_onto_texts(kpi, ok, original_name=original_name)
+
+    # H13: budget/bugdet/bdgt must not map to premium opportunity / marketing spend / net sales
+    if _BUDGET_TOKEN_RE.search(report_text) and _BUDGET_FALSE_FRIEND_ONTO_RE.search(onto_text):
+        if not _BUDGET_TOKEN_RE.search(onto_text):
+            return (
+                "budget must not map to premium opportunity, marketing spend, "
+                "net sales, or non-budget cross-sell KPIs"
+            )
+
+    for report_re, onto_re, reason in _SEMANTIC_CONFLICTS:
+        if report_re.search(report_text) and onto_re.search(onto_text):
+            return reason
+    return None
+
+
+def is_non_mappable_kpi(kpi: ExtractedKPI, *, original_name: str | None = None) -> bool:
+    """Axes, filters, opaque Tableau calcs, and identifiers that must not map."""
+    if _agg_key(kpi.aggregation_type) in _AGG_FAMILY_TEMPORAL:
+        return True
+    name = (kpi.name or "").strip()
+    if _NON_MAPPABLE_NAME_RE.match(name):
+        return True
+    if is_opaque_calculation_kpi(kpi, original_name=original_name):
+        return True
+    return False
+
+
+def is_derived_visual_helper(raw_name: str | None) -> bool:
+    """Rank / Performance Level visuals are derived helpers, not canonical metrics."""
+    return bool(raw_name and _DERIVED_HELPER_RE.match(raw_name.strip()))
+
+
+def _not_found_result(kpi: ExtractedKPI, rationale: str) -> dict:
+    return {
+        "matched_kpi_id": None,
+        "similarity_score": 0.0,
+        "confidence_score": 0.0,
+        "similarity_rationale": rationale,
+        "confidence_rationale": rationale,
+        "model_used": getattr(kpi, "extraction_method", None) or "quality_gate",
+        "mapping_status": "not_found",
+        "mapping_type": "no_match",
+        "warnings": [rationale],
+    }
+
+
+def apply_mapping_quality_gates(
+    kpi: ExtractedKPI,
+    result: dict,
+    ontology_by_id: dict[str, dict] | None = None,
+    *,
+    original_name: str | None = None,
+) -> dict:
+    """Post-match gates: reject non-KPIs, block agg conflicts, demote derived helpers."""
+    if not result:
+        return result
+
+    if is_non_mappable_kpi(kpi, original_name=original_name):
+        reason = (
+            "Quality gate: opaque Tableau Calculation_* lacks business meaning"
+            if is_opaque_calculation_kpi(kpi, original_name=original_name)
+            else "Quality gate: non-mappable axis/filter/identifier"
+        )
+        gated = _not_found_result(kpi, reason)
+        _agent_debug_log(
+            "H8" if "opaque" in reason else "H4",
+            "ontology_service.apply_mapping_quality_gates",
+            "Rejected non-mappable KPI",
+            {"kpi": original_name or kpi.name, "agg": kpi.aggregation_type, "reason": reason},
+        )
+        return gated
+
+    matched_id = result.get("matched_kpi_id")
+    ok = None
+    if matched_id and ontology_by_id:
+        ok = ontology_by_id.get(str(matched_id))
+
+    if matched_id and not ok:
+        # LLM returned an ID not in the current ontology slice (cross-scope or hallucinated);
+        # gate checks cannot run — demote to pending_review, cap confidence.
+        _agent_debug_log(
+            "H12",
+            "ontology_service.apply_mapping_quality_gates",
+            "matched_kpi_id not in ontology_by_id — gates cannot verify, demoting",
+            {"kpi": original_name or kpi.name, "matched_id": matched_id},
+        )
+        result = dict(result)
+        result["mapping_status"] = "pending_review"
+        result["confidence_score"] = min(float(result.get("confidence_score") or 0.0), 0.79)
+        result["warnings"] = list(result.get("warnings") or []) + [
+            "Phase 3 matched a KPI ID absent from the ontology slice — cannot verify gates"
+        ]
+        return result
+
+    if ok and not aggregations_compatible(
+        kpi.aggregation_type,
+        ok.get("aggregation_type"),
+        report_kpi=kpi,
+        original_name=original_name,
+    ):
+        _agent_debug_log(
+            "H9",
+            "ontology_service.apply_mapping_quality_gates",
+            "Blocked aggregation-incompatible match",
+            {
+                "kpi": original_name or kpi.name,
+                "report_agg": kpi.aggregation_type,
+                "onto": ok.get("name"),
+                "onto_agg": ok.get("aggregation_type"),
+                "money_hint": _looks_like_money_kpi(kpi, original_name=original_name),
+                "prior_status": result.get("mapping_status"),
+                "prior_conf": result.get("confidence_score"),
+            },
+        )
+        return _not_found_result(
+            kpi,
+            f"Quality gate: aggregation mismatch "
+            f"({_agg_key(kpi.aggregation_type)} vs {_agg_key(ok.get('aggregation_type'))} "
+            f"for '{ok.get('name')}')",
+        )
+
+    if ok:
+        conflict = has_semantic_conflict(kpi, ok, original_name=original_name)
+        if conflict:
+            hyp = "H13" if "budget" in conflict.lower() else "H11"
+            _agent_debug_log(
+                hyp,
+                "ontology_service.apply_mapping_quality_gates",
+                "Blocked semantic-conflict match",
+                {"kpi": original_name or kpi.name, "onto": ok.get("name"), "reason": conflict},
+            )
+            return _not_found_result(kpi, f"Quality gate: semantic conflict — {conflict}")
+
+    raw = original_name or kpi.name
+    if is_derived_visual_helper(raw) and result.get("matched_kpi_id"):
+        conf = min(float(result.get("confidence_score") or 0.0), 0.79)
+        result = dict(result)
+        result["confidence_score"] = conf
+        result["mapping_status"] = "pending_review"
+        result["warnings"] = list(result.get("warnings") or []) + [
+            "Derived Rank/Performance Level helper — not auto-accepted"
+        ]
+        result["confidence_rationale"] = (
+            (result.get("confidence_rationale") or "") + " | demoted: derived visual helper"
+        ).strip(" |")
+        _agent_debug_log(
+            "H5",
+            "ontology_service.apply_mapping_quality_gates",
+            "Demoted derived visual helper",
+            {"kpi": raw, "onto": (ok or {}).get("name"), "conf": conf},
+        )
+
+    # Never auto-accept fuzzy / weak similarity matches
+    rationale = (result.get("similarity_rationale") or "").lower()
+    if result.get("mapping_status") == "auto_accepted" and (
+        "fuzzy" in rationale or float(result.get("similarity_score") or 0) < 0.98
+    ):
+        if "exact name match" not in rationale and "lineage+agg" not in rationale:
+            result = dict(result)
+            result["mapping_status"] = "pending_review"
+            result["confidence_score"] = min(float(result.get("confidence_score") or 0.0), 0.88)
+            result["warnings"] = list(result.get("warnings") or []) + [
+                "Demoted: fuzzy/weak match cannot auto-accept"
+            ]
+            _agent_debug_log(
+                "H7",
+                "ontology_service.apply_mapping_quality_gates",
+                "Demoted fuzzy/weak auto-accept",
+                {"kpi": raw, "onto": (ok or {}).get("name"), "rationale": rationale[:80]},
+            )
+
+    return result
+
+
 def _lineage_agg_match(kpi: ExtractedKPI, ok: dict) -> bool:
     rep = ok.get("representative_lineage") or []
     if not rep or not kpi.resolved_lineage:
@@ -220,6 +645,35 @@ def _lineage_agg_match(kpi: ExtractedKPI, ok: dict) -> bool:
     return sorted(rep) == sorted(kpi.resolved_lineage) and _agg_key(kpi.aggregation_type) == _agg_key(
         ok.get("aggregation_type") or "UNKNOWN"
     )
+
+
+def _normalize_formula_text(text: str) -> str:
+    if not text:
+        return ""
+    cleaned = re.sub(r"[\[\]\"']", "", text.lower())
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    tokens = sorted(cleaned.split())
+    return " ".join(tokens)
+
+
+def _compute_formula_similarity(kpi: ExtractedKPI, ok: dict) -> float:
+    """Compute token-normalized SequenceMatcher similarity between KPI formula/lineage strings.
+
+    Returns 0.0 if either side has no formula-like content.
+    """
+    kpi_formula = getattr(kpi, "calculation_logic", None) or ""
+    if not kpi_formula and kpi.resolved_lineage:
+        kpi_formula = " ".join(sorted(kpi.resolved_lineage))
+
+    ok_lineage = ok.get("representative_lineage") or []
+    ok_formula = " ".join(sorted(ok_lineage)) if ok_lineage else ""
+
+    if not kpi_formula.strip() or not ok_formula.strip():
+        return 0.0
+
+    norm_kpi = _normalize_formula_text(kpi_formula)
+    norm_ok = _normalize_formula_text(ok_formula)
+    return SequenceMatcher(None, norm_kpi, norm_ok).ratio()
 
 
 def build_ontology_match_indexes(ontology_kpis: list[dict]) -> dict:
@@ -275,163 +729,226 @@ def _generate_virtual_aliases(name_lower: str, ws_name: str | None) -> list[str]
     return list(set(v_aliases))
 
 
+def _phase1_candidate(
+    kpi: ExtractedKPI,
+    ok: dict,
+    *,
+    similarity: float,
+    confidence: float,
+    sim_rationale: str,
+    conf_rationale: str,
+    mapping_status: str,
+) -> dict | None:
+    """Build a Phase 1 result only when aggregations are compatible."""
+    if not aggregations_compatible(
+        kpi.aggregation_type, ok.get("aggregation_type"), report_kpi=kpi
+    ):
+        _agent_debug_log(
+            "H9",
+            "ontology_service._phase1_candidate",
+            "Skipped Phase 1 candidate due to aggregation mismatch",
+            {
+                "kpi": kpi.name,
+                "report_agg": kpi.aggregation_type,
+                "onto": ok.get("name"),
+                "onto_agg": ok.get("aggregation_type"),
+                "money_hint": _looks_like_money_kpi(kpi),
+                "rationale": sim_rationale,
+            },
+        )
+        return None
+    conflict = has_semantic_conflict(kpi, ok)
+    if conflict:
+        _agent_debug_log(
+            "H11",
+            "ontology_service._phase1_candidate",
+            "Skipped Phase 1 candidate due to semantic conflict",
+            {"kpi": kpi.name, "onto": ok.get("name"), "reason": conflict},
+        )
+        return None
+    return {
+        "matched_kpi_id": ok["kpi_id"],
+        "similarity_score": similarity,
+        "confidence_score": confidence,
+        "similarity_rationale": sim_rationale,
+        "confidence_rationale": conf_rationale,
+        "model_used": kpi.extraction_method,
+        "mapping_status": mapping_status,
+    }
+
+
 def _phase1_match(
     kpi: ExtractedKPI,
     ontology_kpis: list[dict],
     indexes: dict | None,
 ) -> dict | None:
+    if is_non_mappable_kpi(kpi):
+        _agent_debug_log(
+            "H8" if is_opaque_calculation_kpi(kpi) else "H4",
+            "ontology_service._phase1_match",
+            "Phase 1 skipped non-mappable KPI",
+            {"kpi": kpi.name, "agg": kpi.aggregation_type, "opaque": is_opaque_calculation_kpi(kpi)},
+        )
+        return None
+
     name_lower = kpi.name.strip().lower()
     if indexes:
         ok = indexes["name"].get(name_lower)
         if ok:
-            return {
-                "matched_kpi_id": ok["kpi_id"],
-                "similarity_score": 1.0,
-                "confidence_score": 1.0,
-                "similarity_rationale": "Exact name match",
-                "confidence_rationale": "Phase 1 exact match",
-                "model_used": kpi.extraction_method,
-                "mapping_status": "auto_accepted",
-            }
+            hit = _phase1_candidate(
+                kpi, ok,
+                similarity=1.0, confidence=1.0,
+                sim_rationale="Exact name match",
+                conf_rationale="Phase 1 exact match",
+                mapping_status="auto_accepted",
+            )
+            if hit:
+                return hit
         ok = indexes["alias"].get(name_lower)
         if ok:
-            return {
-                "matched_kpi_id": ok["kpi_id"],
-                "similarity_score": 0.98,
-                "confidence_score": 0.95,
-                "similarity_rationale": f"Alias match: {name_lower}",
-                "confidence_rationale": "Phase 1 alias match",
-                "model_used": kpi.extraction_method,
-                "mapping_status": "auto_accepted",
-            }
+            hit = _phase1_candidate(
+                kpi, ok,
+                similarity=0.98, confidence=0.95,
+                sim_rationale=f"Alias match: {name_lower}",
+                conf_rationale="Phase 1 alias match",
+                mapping_status="auto_accepted",
+            )
+            if hit:
+                _agent_debug_log(
+                    "H2",
+                    "ontology_service._phase1_match",
+                    "Phase 1 alias match accepted after agg gate",
+                    {"kpi": kpi.name, "onto": ok.get("name"), "agg": kpi.aggregation_type},
+                )
+                return hit
         if kpi.resolved_lineage:
             lineage_key = (tuple(sorted(kpi.resolved_lineage)), _agg_key(kpi.aggregation_type))
             ok = indexes["lineage"].get(lineage_key)
             if ok:
-                return {
-                    "matched_kpi_id": ok["kpi_id"],
-                    "similarity_score": 1.0,
-                    "confidence_score": 1.0,
-                    "similarity_rationale": "Phase 1 lineage+agg match",
-                    "confidence_rationale": "Phase 1 lineage+agg match",
-                    "model_used": kpi.extraction_method,
-                    "mapping_status": "auto_accepted",
-                }
-        
+                hit = _phase1_candidate(
+                    kpi, ok,
+                    similarity=1.0, confidence=1.0,
+                    sim_rationale="Phase 1 lineage+agg match",
+                    conf_rationale="Phase 1 lineage+agg match",
+                    mapping_status="auto_accepted",
+                )
+                if hit:
+                    return hit
+
         # Virtual alias matching
         v_aliases = _generate_virtual_aliases(name_lower, getattr(kpi, "worksheet_name", None))
         for v_alias in v_aliases:
             ok = indexes["alias"].get(v_alias) or indexes["name"].get(v_alias)
             if ok:
-                return {
-                    "matched_kpi_id": ok["kpi_id"],
-                    "similarity_score": 0.95,
-                    "confidence_score": 0.90,
-                    "similarity_rationale": f"Virtual alias match: '{v_alias}'",
-                    "confidence_rationale": "Phase 1 virtual alias match",
-                    "model_used": kpi.extraction_method,
-                    "mapping_status": "auto_accepted",
-                }
-        
+                hit = _phase1_candidate(
+                    kpi, ok,
+                    similarity=0.95, confidence=0.90,
+                    sim_rationale=f"Virtual alias match: '{v_alias}'",
+                    conf_rationale="Phase 1 virtual alias match",
+                    mapping_status="auto_accepted",
+                )
+                if hit:
+                    return hit
+
         # Fuzzy name matching if indexed exact/alias/lineage failed
         for ok in ontology_kpis:
             ok_name = ok.get("name", "")
             if ok_name and _fuzzy_name_match(name_lower, ok_name):
-                return {
-                    "matched_kpi_id": ok["kpi_id"],
-                    "similarity_score": 0.95,
-                    "confidence_score": 0.90,
-                    "similarity_rationale": f"Fuzzy name match: '{ok_name}' (typo tolerance)",
-                    "confidence_rationale": "Phase 1 fuzzy match",
-                    "model_used": kpi.extraction_method,
-                    "mapping_status": "auto_accepted",
-                }
+                hit = _phase1_candidate(
+                    kpi, ok,
+                    similarity=0.95, confidence=0.90,
+                    sim_rationale=f"Fuzzy name match: '{ok_name}' (typo tolerance)",
+                    conf_rationale="Phase 1 fuzzy match",
+                    mapping_status="pending_review",
+                )
+                if hit:
+                    return hit
             for alias in ok.get("aliases") or []:
                 if _fuzzy_name_match(name_lower, str(alias)):
-                    return {
-                        "matched_kpi_id": ok["kpi_id"],
-                        "similarity_score": 0.93,
-                        "confidence_score": 0.88,
-                        "similarity_rationale": f"Fuzzy alias match: '{alias}' (typo tolerance)",
-                        "confidence_rationale": "Phase 1 fuzzy alias match",
-                        "model_used": kpi.extraction_method,
-                        "mapping_status": "pending_review",
-                    }
+                    hit = _phase1_candidate(
+                        kpi, ok,
+                        similarity=0.93, confidence=0.88,
+                        sim_rationale=f"Fuzzy alias match: '{alias}' (typo tolerance)",
+                        conf_rationale="Phase 1 fuzzy alias match",
+                        mapping_status="pending_review",
+                    )
+                    if hit:
+                        return hit
         return None
 
     for ok in ontology_kpis:
         if ok.get("name", "").strip().lower() == name_lower:
-            return {
-                "matched_kpi_id": ok["kpi_id"],
-                "similarity_score": 1.0,
-                "confidence_score": 1.0,
-                "similarity_rationale": "Exact name match",
-                "confidence_rationale": "Phase 1 exact match",
-                "model_used": kpi.extraction_method,
-                "mapping_status": "auto_accepted",
-            }
+            hit = _phase1_candidate(
+                kpi, ok,
+                similarity=1.0, confidence=1.0,
+                sim_rationale="Exact name match",
+                conf_rationale="Phase 1 exact match",
+                mapping_status="auto_accepted",
+            )
+            if hit:
+                return hit
         for alias in ok.get("aliases") or []:
             if str(alias).strip().lower() == name_lower:
-                return {
-                    "matched_kpi_id": ok["kpi_id"],
-                    "similarity_score": 0.98,
-                    "confidence_score": 0.95,
-                    "similarity_rationale": f"Alias match: {alias}",
-                    "confidence_rationale": "Phase 1 alias match",
-                    "model_used": kpi.extraction_method,
-                    "mapping_status": "auto_accepted",
-                }
+                hit = _phase1_candidate(
+                    kpi, ok,
+                    similarity=0.98, confidence=0.95,
+                    sim_rationale=f"Alias match: {alias}",
+                    conf_rationale="Phase 1 alias match",
+                    mapping_status="auto_accepted",
+                )
+                if hit:
+                    return hit
     for ok in ontology_kpis:
         if _lineage_agg_match(kpi, ok):
-            return {
-                "matched_kpi_id": ok["kpi_id"],
-                "similarity_score": 1.0,
-                "confidence_score": 1.0,
-                "similarity_rationale": "Phase 1 lineage+agg match",
-                "confidence_rationale": "Phase 1 lineage+agg match",
-                "model_used": kpi.extraction_method,
-                "mapping_status": "auto_accepted",
-            }
-    
+            hit = _phase1_candidate(
+                kpi, ok,
+                similarity=1.0, confidence=1.0,
+                sim_rationale="Phase 1 lineage+agg match",
+                conf_rationale="Phase 1 lineage+agg match",
+                mapping_status="auto_accepted",
+            )
+            if hit:
+                return hit
+
     # Virtual alias fallback without index
     v_aliases = _generate_virtual_aliases(name_lower, getattr(kpi, "worksheet_name", None))
     for ok in ontology_kpis:
         for alias in [ok.get("name", "")] + (ok.get("aliases") or []):
             alias_lower = str(alias).strip().lower()
             if alias_lower in v_aliases:
-                return {
-                    "matched_kpi_id": ok["kpi_id"],
-                    "similarity_score": 0.95,
-                    "confidence_score": 0.90,
-                    "similarity_rationale": f"Virtual alias match: '{alias_lower}'",
-                    "confidence_rationale": "Phase 1 virtual alias match",
-                    "model_used": kpi.extraction_method,
-                    "mapping_status": "auto_accepted",
-                }
+                hit = _phase1_candidate(
+                    kpi, ok,
+                    similarity=0.95, confidence=0.90,
+                    sim_rationale=f"Virtual alias match: '{alias_lower}'",
+                    conf_rationale="Phase 1 virtual alias match",
+                    mapping_status="auto_accepted",
+                )
+                if hit:
+                    return hit
     # Fuzzy name matching if sequential exact/alias/lineage failed
     for ok in ontology_kpis:
         ok_name = ok.get("name", "")
         if ok_name and _fuzzy_name_match(name_lower, ok_name):
-            return {
-                "matched_kpi_id": ok["kpi_id"],
-                "similarity_score": 0.95,
-                "confidence_score": 0.90,
-                "similarity_rationale": f"Fuzzy name match: '{ok_name}' (typo tolerance)",
-                "confidence_rationale": "Phase 1 fuzzy match",
-                "model_used": kpi.extraction_method,
-                "mapping_status": "auto_accepted",
-            }
+            hit = _phase1_candidate(
+                kpi, ok,
+                similarity=0.95, confidence=0.90,
+                sim_rationale=f"Fuzzy name match: '{ok_name}' (typo tolerance)",
+                conf_rationale="Phase 1 fuzzy match",
+                mapping_status="pending_review",
+            )
+            if hit:
+                return hit
         for alias in ok.get("aliases") or []:
             if _fuzzy_name_match(name_lower, str(alias)):
-                return {
-                    "matched_kpi_id": ok["kpi_id"],
-                    "similarity_score": 0.93,
-                    "confidence_score": 0.88,
-                    "similarity_rationale": f"Fuzzy alias match: '{alias}' (typo tolerance)",
-                    "confidence_rationale": "Phase 1 fuzzy alias match",
-                    "model_used": kpi.extraction_method,
-                    "mapping_status": "pending_review",
-                }
+                hit = _phase1_candidate(
+                    kpi, ok,
+                    similarity=0.93, confidence=0.88,
+                    sim_rationale=f"Fuzzy alias match: '{alias}' (typo tolerance)",
+                    conf_rationale="Phase 1 fuzzy alias match",
+                    mapping_status="pending_review",
+                )
+                if hit:
+                    return hit
     return None
 
 
@@ -456,6 +973,7 @@ def match_kpi_to_ontology(
     import time
     global _phase3_call_counter, _last_phase3_candidates
     embedding_fn = embedding_fn or compute_embedding
+    ontology_by_id = {str(ok.get("kpi_id")): ok for ok in ontology_kpis if ok.get("kpi_id")}
 
     # Normalize the KPI name to strip dimensions, prefixes, and table refs
     original_name = kpi.name
@@ -475,6 +993,21 @@ def match_kpi_to_ontology(
             dimensions=getattr(kpi, 'dimensions', []),
             filters=getattr(kpi, 'filters', []),
         )
+
+    if is_non_mappable_kpi(kpi, original_name=original_name):
+        reason = (
+            "Quality gate: opaque Tableau Calculation_* lacks business meaning"
+            if is_opaque_calculation_kpi(kpi, original_name=original_name)
+            else "Quality gate: non-mappable axis/filter/identifier"
+        )
+        early = _not_found_result(kpi, reason)
+        _agent_debug_log(
+            "H8" if "opaque" in reason else "H4",
+            "ontology_service.match_kpi_to_ontology",
+            "Early not_found for non-mappable KPI",
+            {"kpi": original_name, "agg": kpi.aggregation_type, "reason": reason},
+        )
+        return early
 
     log_data = {
         "timestamp": datetime.utcnow().isoformat(),
@@ -515,6 +1048,9 @@ def match_kpi_to_ontology(
 
     if cached:
         cached["mapping_status"] = _status_from_confidence(cached.get("confidence_score") or 0.0)
+        cached = apply_mapping_quality_gates(
+            kpi, cached, ontology_by_id, original_name=original_name
+        )
         log_data["cache_hit"] = True
         log_data["final_result"] = cached
         _write_to_ontology_log(log_data)
@@ -526,7 +1062,10 @@ def match_kpi_to_ontology(
     log_data["phases"]["phase1"]["duration"] = time.time() - t1
 
     if phase1:
-        log_data["phases"]["phase1"]["matched"] = True
+        phase1 = apply_mapping_quality_gates(
+            kpi, phase1, ontology_by_id, original_name=original_name
+        )
+        log_data["phases"]["phase1"]["matched"] = bool(phase1.get("matched_kpi_id"))
         log_data["phases"]["phase1"]["result"] = phase1
         log_data["final_result"] = phase1
         _write_to_ontology_log(log_data)
@@ -598,16 +1137,53 @@ def match_kpi_to_ontology(
     log_data["phases"]["phase2"]["duration"] = time.time() - t2
 
     if best_sim >= 0.95:
-        result = {
-            "matched_kpi_id": best_id,
-            "similarity_score": best_sim,
-            "confidence_score": best_sim,
-            "similarity_rationale": f"Embedding match to '{best_name}'",
-            "confidence_rationale": "Phase 2b embedding auto-accept",
-            "model_used": "embedding",
-            "mapping_status": "auto_accepted",
-        }
+        # CRITICAL: If using hash fallback, embeddings are NOT semantic.
+        # Hash-based similarity scores are meaningless noise — never auto-accept.
+        if is_using_hash_fallback():
+            logger.warning(
+                "Phase 2 would auto-accept '%s' (sim=%.3f) but hash fallback is active. "
+                "Forcing pending_review to prevent garbage auto-approval.",
+                kpi.name, best_sim,
+            )
+            result = {
+                "matched_kpi_id": best_id,
+                "similarity_score": best_sim,
+                "confidence_score": 0.50,  # Cap confidence — hash similarity is unreliable
+                "similarity_rationale": f"Embedding match to '{best_name}' (HASH FALLBACK — not semantic)",
+                "confidence_rationale": "Phase 2b hash fallback — auto-accept blocked",
+                "model_used": "hash_fallback",
+                "mapping_status": "pending_review",
+                "mapping_type": "no_match",
+                "alternative_candidates": llm_candidates[:5],
+            }
+        else:
+            # Differentiate confidence from similarity:
+            # Embedding similarity 0.95+ is strong but confidence should factor in
+            # whether we have supporting evidence (lineage, formula, etc.)
+            has_lineage = bool(kpi.resolved_lineage)
+            has_definition = bool(kpi.definition)
+            evidence_bonus = 0.0
+            if has_lineage:
+                evidence_bonus += 0.02
+            if has_definition:
+                evidence_bonus += 0.01
+            conf = min(1.0, best_sim * 0.95 + evidence_bonus)  # Slight discount from raw similarity
+
+            result = {
+                "matched_kpi_id": best_id,
+                "similarity_score": best_sim,
+                "confidence_score": conf,
+                "similarity_rationale": f"Embedding match to '{best_name}'",
+                "confidence_rationale": "Phase 2b embedding auto-accept",
+                "model_used": "embedding",
+                "mapping_status": _status_from_confidence(conf),
+                "mapping_type": "semantic_match",
+                "alternative_candidates": llm_candidates[:5],
+            }
         log_data["phases"]["phase2"]["matched"] = True
+        result = apply_mapping_quality_gates(
+            kpi, result, ontology_by_id, original_name=original_name
+        )
         log_data["phases"]["phase2"]["result"] = result
         log_data["final_result"] = result
         _write_to_ontology_log(log_data)
@@ -629,16 +1205,31 @@ def match_kpi_to_ontology(
     t3 = time.time()
 
     if _phase3_call_counter >= MAX_PHASE3_CALLS_PER_EXTRACTION or not llm:
-        conf = best_sim
+        # If hash fallback is active, cap confidence to prevent garbage auto-accept
+        if is_using_hash_fallback():
+            conf = min(best_sim, 0.50)
+            model_used = "hash_fallback"
+        else:
+            conf = best_sim
+            model_used = "embedding_fallback"
+        status = _status_from_confidence(conf)
+        if model_used == "embedding_fallback" and conf >= 0.70:
+            status = "pending_review"
+
         result = {
             "matched_kpi_id": best_id if conf >= 0.70 else None,
             "similarity_score": best_sim,
             "confidence_score": conf,
             "similarity_rationale": "LLM cap reached; embedding-only decision",
-            "confidence_rationale": "Phase 3 skipped",
-            "model_used": "embedding_fallback",
-            "mapping_status": _status_from_confidence(conf),
+            "confidence_rationale": "Phase 3 skipped" + (" (hash fallback)" if is_using_hash_fallback() else ""),
+            "model_used": model_used,
+            "mapping_status": status,
+            "mapping_type": _classify_mapping_type("embedding", conf),
+            "alternative_candidates": llm_candidates[:5],
         }
+        result = apply_mapping_quality_gates(
+            kpi, result, ontology_by_id, original_name=original_name
+        )
         log_data["phases"]["phase3"]["skipped_reason"] = "LLM cap reached or LLM not provided"
         log_data["phases"]["phase3"]["result"] = result
         log_data["final_result"] = result
@@ -682,12 +1273,46 @@ def match_kpi_to_ontology(
     if getattr(kpi, "filters", None) and len(kpi.filters) > 0:
         report_ctx["visual_filters"] = kpi.filters
         
-    prompt = f"""Judge if report KPI maps to a canonical ontology KPI.
-Report KPI: {json.dumps(report_ctx)}
-Candidates: {json.dumps(candidates)}
-Return JSON: matched_kpi_id (or null), similarity_score, confidence_score, rationale
+    prompt = f"""You are an Enterprise KPI Governance Expert.
+Compare the incoming Report Metric with the candidate Canonical Ontology KPIs.
+Your job is precise governance matching — NOT nearest-neighbor guessing.
 
-Use the worksheet_context and visual_filters to guide matching when the raw metric name is generic."""
+Report KPI Context:
+{json.dumps(report_ctx, indent=2)}
+
+Canonical Candidates:
+{json.dumps(candidates, indent=2)}
+
+Matching Guidelines:
+1. Compare mathematical intent, calculation logic, aggregation, field lineage, AND business meaning.
+2. Ignore minor visual naming variations (e.g., "Total Premium b" vs "Premium") only when the underlying measure is the same.
+3. Use worksheet_context and visual_filters only as supporting context — never as the sole reason to force a match to an unrelated canonical KPI.
+4. If no candidate genuinely matches the business logic, set matched_kpi_id to null and confidence_score below 0.80. Do NOT pick the "closest cousin."
+5. HARD RULE — Aggregation compatibility:
+   - Do NOT map SUM/COUNT/COUNTD totals to AVG severity/average KPIs.
+   - Do NOT map COUNT/COUNTD claim volumes to PCT frequency/rate KPIs.
+   - Do NOT map money/budget SUM totals to COUNT ontology KPIs.
+   - Do NOT map date axes (MONTH-TRUNC), filters, or identifiers (e.g. Claim Number) to any KPI.
+6. Rank | X and Performance Level | X are derived helpers — only match with confidence_score below 0.80.
+7. HARD RULE — Semantic false friends (always reject; matched_kpi_id=null, confidence_score<0.80):
+   - Household income ≠ Loss/Claims Severity, Account Size, or average premium per account.
+   - Budget / bugdet / bdgt ≠ Premium Opportunity, Marketing Spend, Net Sales, or LOB Cross-sell COUNT.
+   - renewal_budget / Renewal Budget ≠ Renewal Premium (budget planned spend ≠ earned policy premium).
+   - Opportunity / pipeline revenue_amount ≠ Net Sales or Marketing Spend.
+   - Meeting counts ≠ Scheduled Calls, Outbound Calls, or Mail KPIs (unless the canonical name/definition explicitly includes meetings).
+   - Opportunity counts ≠ Quote Count.
+   - Invoice counts ≠ Audits / Calls / Mail.
+   - Sales stage distribution ≠ Cancellation Reason Distribution.
+   - Field names with underscores carry full semantic meaning: gcrm_opportunity, opportunity_name, revenue_amount are CRM pipeline/sales data and must NOT map to booked insurance policy or call-center KPIs.
+8. Ontology gaps are acceptable: prefer not_found (null) over inventing a mapping.
+
+Return a valid JSON object matching this exact structure:
+{{
+  "matched_kpi_id": "<canonical_kpi_id or null>",
+  "similarity_score": <float between 0.0 and 1.0>,
+  "confidence_score": <float between 0.0 and 1.0>,
+  "rationale": "<step-by-step business explanation for the match or rejection decision>"
+}}"""
 
     log_data["phases"]["phase3"]["llm_prompt"] = prompt
 
@@ -737,32 +1362,67 @@ Use the worksheet_context and visual_filters to guide matching when the raw metr
 
     if parsed_result:
         conf = float(parsed_result.get("confidence_score", best_sim))
+        rationale = parsed_result.get("rationale", "LLM judge")
+        raw_matched = parsed_result.get("matched_kpi_id")
+        # Treat explicit LLM null/empty as rejection — never backfill embedding best_id (H12)
+        if raw_matched in (None, "", "null", "None"):
+            matched_id = None
+            if conf >= 0.70:
+                _agent_debug_log(
+                    "H12",
+                    "ontology_service.match_kpi_to_ontology",
+                    "LLM returned null — blocked embedding best_id backfill",
+                    {
+                        "kpi": original_name,
+                        "llm_conf": conf,
+                        "blocked_best_id": best_id,
+                        "blocked_best_name": best_name,
+                    },
+                )
+            conf = min(conf, 0.79) if matched_id is None else conf
+        else:
+            matched_id = str(raw_matched)
         result = {
-            "matched_kpi_id": parsed_result.get("matched_kpi_id") or (best_id if conf >= 0.70 else None),
+            "matched_kpi_id": matched_id,
             "similarity_score": float(parsed_result.get("similarity_score", best_sim)),
-            "confidence_score": conf,
-            "similarity_rationale": parsed_result.get("rationale", "LLM judge"),
+            "confidence_score": conf if matched_id else min(conf, 0.79),
+            "similarity_rationale": rationale,
             "confidence_rationale": "Phase 3 LLM" if structured_success else "Phase 3 LLM fallback",
             "model_used": "llm_judge",
-            "mapping_status": _status_from_confidence(conf),
+            "mapping_status": _status_from_confidence(conf) if matched_id else "not_found",
+            "mapping_type": _classify_mapping_type(rationale, conf) if matched_id else "no_match",
+            "alternative_candidates": llm_candidates[:5],
         }
-        log_data["phases"]["phase3"]["matched"] = parsed_result.get("matched_kpi_id") is not None
+        log_data["phases"]["phase3"]["matched"] = matched_id is not None
         log_data["phases"]["phase3"]["result"] = result
         log_data["final_result"] = result
     else:
         # Fallback to embedding if LLM completely failed
+        # If hash fallback active, cap confidence
+        if is_using_hash_fallback():
+            fb_conf = min(best_sim, 0.50)
+            fb_model = "hash_fallback"
+        else:
+            fb_conf = best_sim
+            fb_model = "embedding"
         result = {
-            "matched_kpi_id": best_id,
+            "matched_kpi_id": best_id if fb_conf >= 0.70 else None,
             "similarity_score": best_sim,
-            "confidence_score": best_sim,
+            "confidence_score": fb_conf,
             "similarity_rationale": f"Embedding best match '{best_name}'",
-            "confidence_rationale": "Phase 3 LLM failed; embedding fallback",
-            "model_used": "embedding",
-            "mapping_status": _status_from_confidence(best_sim),
+            "confidence_rationale": "Phase 3 LLM failed; embedding fallback" + (" (hash)" if is_using_hash_fallback() else ""),
+            "model_used": fb_model,
+            "mapping_status": _status_from_confidence(fb_conf),
+            "mapping_type": _classify_mapping_type("embedding", fb_conf),
+            "alternative_candidates": llm_candidates[:5],
         }
         log_data["phases"]["phase3"]["result"] = result
         log_data["final_result"] = result
 
+    result = apply_mapping_quality_gates(
+        kpi, result, ontology_by_id, original_name=original_name
+    )
+    log_data["final_result"] = result
     log_data["phases"]["phase3"]["duration"] = time.time() - t3
     _write_to_ontology_log(log_data)
 
@@ -883,6 +1543,7 @@ def _kpi_row_to_dict(r: OntologyKPI) -> dict:
         "domain": r.domain,
         "sector": r.sector,
         "subdomain": r.subdomain,
+        "line_of_business": getattr(r, "line_of_business", None),
         "aliases": _parse_aliases(r.aliases),
         "aliases_raw": r.aliases,
         "aggregation_type": r.aggregation_type,
@@ -896,6 +1557,7 @@ def load_ontology_kpis(
     *,
     sector: str | None = None,
     subdomain: str | None = None,
+    line_of_business: str | None = None,
     active_sectors_only: bool = True,
 ) -> list[dict]:
     q = db.query(OntologyKPI).filter(OntologyKPI.status == "active")
@@ -906,6 +1568,8 @@ def load_ontology_kpis(
         q = q.filter(OntologyKPI.sector == sector)
     if subdomain:
         q = q.filter(OntologyKPI.subdomain == subdomain)
+    if line_of_business:
+        q = q.filter(OntologyKPI.line_of_business == line_of_business)
     rows = q.all()
     return [_kpi_row_to_dict(r) for r in rows]
 
@@ -978,6 +1642,20 @@ def persist_mapping(
     row.is_dynamic = getattr(kpi, "is_dynamic", False)
     row.ontology_version = ONTOLOGY_VERSION
     row.computed_at = datetime.utcnow()
+    # Persist mapping type and alternative candidates if columns exist
+    if hasattr(row, "mapping_type"):
+        row.mapping_type = match.get("mapping_type") or _classify_mapping_type(
+            match.get("similarity_rationale", ""),
+            float(match.get("confidence_score") or 0.0),
+        )
+    if hasattr(row, "alternative_candidates"):
+        alt = match.get("alternative_candidates")
+        if alt:
+            row.alternative_candidates = json.dumps(alt)
+    if hasattr(row, "formula_similarity"):
+        row.formula_similarity = match.get("formula_similarity")
+    if hasattr(row, "approval_decision"):
+        row.approval_decision = match.get("approval_decision")
     if commit:
         db.commit()
         db.refresh(row)

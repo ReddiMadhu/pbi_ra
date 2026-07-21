@@ -1,0 +1,1873 @@
+{
+    "dashboards": [
+        {
+            "dashboard_name": "Car Insurance Dashboard",
+            "dashboard_id": 1,
+            "ontology_sector": "insurance",
+            "ontology_subdomain": "actuarial_and_risk",
+            "items": [
+                {
+                    "mapping_id": "30cc9bc4-cadb-4fd7-89c2-1bb2b6702e67",
+                    "report_kpi_name": "Total Insurance Policues",
+                    "report_kpi_definition": "COUNTD([ID (Table - Insurance Policies - Insurance Policies-2.csv)])",
+                    "report_kpi_lineage": [
+                        "ID (Table - Insurance Policies - Insurance Policies-2.csv)"
+                    ],
+                    "report_kpi_aggregation": "COUNTD",
+                    "worksheet_name": "Car Use Pie",
+                    "canonical_kpi": {
+                        "kpi_id": "72cc8d50-9cd9-4490-afb5-41730e4e5e95",
+                        "name": "Total Policy Count",
+                        "definition": "Aggregated Policy Production Count",
+                        "domain": "Distribution",
+                        "sector": "insurance",
+                        "subdomain": "distribution",
+                        "aggregation_type": "COUNT"
+                    },
+                    "similarity_score": 0.93,
+                    "confidence_score": 0.88,
+                    "similarity_rationale": "Fuzzy alias match: 'Total Insured Policies' (typo tolerance)",
+                    "confidence_rationale": "Phase 1 fuzzy alias match (sector fallback)",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "b9720f51-b065-4f65-8415-4c9a8ab3ec1c",
+                    "report_kpi_name": "SUM of Calculation_99008834897489921",
+                    "report_kpi_definition": "SUM of Calculation_99008834897489921 [Pie]",
+                    "report_kpi_lineage": [
+                        "Calculation_99008834897489921"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Car Use Pie",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "Quality gate: opaque Tableau Calculation_* lacks business meaning",
+                    "confidence_rationale": "Quality gate: opaque Tableau Calculation_* lacks business meaning",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "1403e864-3ce6-454c-a4ac-b8f129922071",
+                    "report_kpi_name": "SUM of Calculation_99008834897498115",
+                    "report_kpi_definition": "SUM of Calculation_99008834897498115 [Pie]",
+                    "report_kpi_lineage": [
+                        "Calculation_99008834897498115"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Car Use Pie",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "Quality gate: opaque Tableau Calculation_* lacks business meaning",
+                    "confidence_rationale": "Quality gate: opaque Tableau Calculation_* lacks business meaning",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "229a1094-f25f-43eb-9162-4d6cfb3ab47c",
+                    "report_kpi_name": "Total Insurance Policues",
+                    "report_kpi_definition": "COUNTD([ID (Table - Insurance Policies - Insurance Policies-2.csv)])",
+                    "report_kpi_lineage": [
+                        "ID (Table - Insurance Policies - Insurance Policies-2.csv)"
+                    ],
+                    "report_kpi_aggregation": "COUNTD",
+                    "worksheet_name": "Total Insurance Policies",
+                    "canonical_kpi": {
+                        "kpi_id": "72cc8d50-9cd9-4490-afb5-41730e4e5e95",
+                        "name": "Total Policy Count",
+                        "definition": "Aggregated Policy Production Count",
+                        "domain": "Distribution",
+                        "sector": "insurance",
+                        "subdomain": "distribution",
+                        "aggregation_type": "COUNT"
+                    },
+                    "similarity_score": 0.93,
+                    "confidence_score": 0.88,
+                    "similarity_rationale": "Fuzzy alias match: 'Total Insured Policies' (typo tolerance)",
+                    "confidence_rationale": "Phase 1 fuzzy alias match (sector fallback)",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "fb942aa9-1dd3-4c41-b9e9-65ea749edb01",
+                    "report_kpi_name": "SUM of Insurance Policies - Insurance Policies-2.csv.claim_amt",
+                    "report_kpi_definition": "SUM of Insurance Policies - Insurance Policies-2.csv.claim_amt [Text]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.claim_amt"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Total Claim Amount",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.6,
+                    "confidence_score": 0.7,
+                    "similarity_rationale": "The report KPI 'SUM of Insurance Policies - Insurance Policies-2.csv.claim_amt' represents the total claim amount, aggregated by SUM. The canonical candidates provided include 'Loss Severity', 'Loss Frequency', 'Claims Severity', 'Frequency Trend', and 'Claims Frequency'. Upon comparison, 'Loss Severity' is the closest in terms of business meaning as it relates to the cost per claim. However, the aggregation used in the report KPI is SUM, whereas 'Loss Severity' is defined as an average cost per claim. According to the HARD RULE \u2014 Aggregation compatibility, we should not map SUM totals to AVG severity/average KPIs. Therefore, despite the similarity in business meaning, the report KPI does not match 'Loss Severity' or any other canonical KPI due to the aggregation mismatch. The 'Claims Severity' and 'Claims Frequency' canonical KPIs have definitions that are too vague ('Claims Risk') to establish a confident match. Hence, the matched_kpi_id is set to null, and the confidence_score is below 0.80.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "e3dfd7b3-567f-4f05-9f41-818f9f390747",
+                    "report_kpi_name": "SUM of claim_amt by Date calculation",
+                    "report_kpi_definition": "SUM of claim_amt by Date calculation [Text]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.claim_amt"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Total Claim Amount",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "Quality gate: aggregation mismatch (SUM vs AVG for 'Loss Severity')",
+                    "confidence_rationale": "Quality gate: aggregation mismatch (SUM vs AVG for 'Loss Severity')",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "7094b493-7a24-4daa-bfb9-9d8e50b40f00",
+                    "report_kpi_name": "SUM of claim_amt by Birthdate",
+                    "report_kpi_definition": "SUM of claim_amt by Birthdate [Text]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.claim_amt"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Total Claim Amount",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "Quality gate: aggregation mismatch (SUM vs AVG for 'Loss Severity')",
+                    "confidence_rationale": "Quality gate: aggregation mismatch (SUM vs AVG for 'Loss Severity')",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "9aa71ec9-ef99-4bf5-a2d7-0099de482968",
+                    "report_kpi_name": "SUM of claim_amt by Car Make",
+                    "report_kpi_definition": "SUM of claim_amt by Car Make [Text]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.claim_amt"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Total Claim Amount",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "Quality gate: aggregation mismatch (SUM vs AVG for 'Loss Severity')",
+                    "confidence_rationale": "Quality gate: aggregation mismatch (SUM vs AVG for 'Loss Severity')",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "ee4f3a05-5805-48eb-a9f6-0beb00875aca",
+                    "report_kpi_name": "SUM of claim_amt by Car Model",
+                    "report_kpi_definition": "SUM of claim_amt by Car Model [Text]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.claim_amt"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Total Claim Amount",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "Quality gate: aggregation mismatch (SUM vs AVG for 'Loss Severity')",
+                    "confidence_rationale": "Quality gate: aggregation mismatch (SUM vs AVG for 'Loss Severity')",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "a6d38503-5a6f-4f6e-ac3e-2a1ea5d45a0a",
+                    "report_kpi_name": "SUM of claim_amt by Car Year",
+                    "report_kpi_definition": "SUM of claim_amt by Car Year [Text]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.claim_amt"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Total Claim Amount",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "Quality gate: aggregation mismatch (SUM vs AVG for 'Loss Severity')",
+                    "confidence_rationale": "Quality gate: aggregation mismatch (SUM vs AVG for 'Loss Severity')",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "96d1a482-0c65-489d-b62c-d5398a038fbe",
+                    "report_kpi_name": "SUM of claim_amt by Claim Amt",
+                    "report_kpi_definition": "SUM of claim_amt by Claim Amt [Text]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.claim_amt"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Total Claim Amount",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "Quality gate: aggregation mismatch (SUM vs AVG for 'Loss Severity')",
+                    "confidence_rationale": "Quality gate: aggregation mismatch (SUM vs AVG for 'Loss Severity')",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "8a5a6411-72a3-470a-a8e2-48997c20c6a8",
+                    "report_kpi_name": "SUM of claim_amt by Claim Freq",
+                    "report_kpi_definition": "SUM of claim_amt by Claim Freq [Text]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.claim_amt"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Total Claim Amount",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "Quality gate: aggregation mismatch (SUM vs AVG for 'Loss Severity')",
+                    "confidence_rationale": "Quality gate: aggregation mismatch (SUM vs AVG for 'Loss Severity')",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "c094027f-ea84-430e-9b5b-2e91f4cb7bbe",
+                    "report_kpi_name": "SUM of claim_amt by Education",
+                    "report_kpi_definition": "SUM of claim_amt by Education [Text]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.claim_amt"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Total Claim Amount",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "Quality gate: aggregation mismatch (SUM vs AVG for 'Loss Severity')",
+                    "confidence_rationale": "Quality gate: aggregation mismatch (SUM vs AVG for 'Loss Severity')",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "0f66c9bd-e531-4e78-a496-a96de104c61f",
+                    "report_kpi_name": "SUM of claim_amt by Gender",
+                    "report_kpi_definition": "SUM of claim_amt by Gender [Text]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.claim_amt"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Total Claim Amount",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "Quality gate: aggregation mismatch (SUM vs AVG for 'Loss Severity')",
+                    "confidence_rationale": "Quality gate: aggregation mismatch (SUM vs AVG for 'Loss Severity')",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "a507c3f6-3b08-44f5-a66e-c408a39d08e4",
+                    "report_kpi_name": "SUM of claim_amt by Marital Status",
+                    "report_kpi_definition": "SUM of claim_amt by Marital Status [Text]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.claim_amt"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Total Claim Amount",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "Quality gate: aggregation mismatch (SUM vs AVG for 'Loss Severity')",
+                    "confidence_rationale": "Quality gate: aggregation mismatch (SUM vs AVG for 'Loss Severity')",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "201d1c12-4cb3-4ace-8c4f-cf7fce81e68a",
+                    "report_kpi_name": "AVG of Insurance Policies - Insurance Policies-2.csv.claim_amt",
+                    "report_kpi_definition": "AVG of Insurance Policies - Insurance Policies-2.csv.claim_amt [Text / value]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.claim_amt"
+                    ],
+                    "report_kpi_aggregation": "AVG",
+                    "worksheet_name": "Average Claim Amount",
+                    "canonical_kpi": {
+                        "kpi_id": "2dc0feb4-7802-462e-9fcd-f134b6cf6d02",
+                        "name": "Loss Severity",
+                        "definition": "Average cost per claim (incurred or paid).",
+                        "domain": "Actuarial & Risk",
+                        "sector": "insurance",
+                        "subdomain": "actuarial_and_risk",
+                        "aggregation_type": "AVG"
+                    },
+                    "similarity_score": 0.85,
+                    "confidence_score": 0.9,
+                    "similarity_rationale": "The report KPI 'AVG of Insurance Policies - Insurance Policies-2.csv.claim_amt' with the context 'Average Claim Amount' is compared against the canonical candidates. The aggregation is AVG, and the field lineage is 'claim_amt', indicating an average cost per claim. The canonical KPI 'Loss Severity' (ID: 2dc0feb4-7802-462e-9fcd-f134b6cf6d02) is defined as 'Average cost per claim (incurred or paid).' This matches the mathematical intent (average), calculation logic (AVG of claim amount), and business meaning (average cost per claim) of the report KPI. The visual breakdown dimensions, while varied, do not contradict this interpretation. Therefore, 'Loss Severity' is a strong match with a high confidence score.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "9ab3db3b-4db6-4f04-aed1-e44973d66a77",
+                    "report_kpi_name": "AVG of claim_amt by Date calculation",
+                    "report_kpi_definition": "AVG of claim_amt by Date calculation [Text / value]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.claim_amt"
+                    ],
+                    "report_kpi_aggregation": "AVG",
+                    "worksheet_name": "Average Claim Amount",
+                    "canonical_kpi": {
+                        "kpi_id": "2dc0feb4-7802-462e-9fcd-f134b6cf6d02",
+                        "name": "Loss Severity",
+                        "definition": "Average cost per claim (incurred or paid).",
+                        "domain": "Actuarial & Risk",
+                        "sector": "insurance",
+                        "subdomain": "actuarial_and_risk",
+                        "aggregation_type": "AVG"
+                    },
+                    "similarity_score": 0.85,
+                    "confidence_score": 0.9,
+                    "similarity_rationale": "The report KPI 'AVG of claim_amt' with the context 'Average Claim Amount' closely matches the canonical KPI 'Loss Severity' (kpi_id: 2dc0feb4-7802-462e-9fcd-f134b6cf6d02). Both are defined as averages related to claim costs, aligning in mathematical intent, calculation logic (average), and business meaning (average cost per claim). The lineage 'Insurance Policies-2.csv.claim_amt' supports this alignment as it directly relates to claim amounts. The visual breakdown dimensions, while varied, do not contradict this interpretation. The aggregation (AVG) is compatible with the definition of 'Loss Severity.' Therefore, the match is made with a high confidence score.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "2d4b21bc-c4cb-446a-9b38-619a472a4d71",
+                    "report_kpi_name": "AVG of claim_amt by Birthdate",
+                    "report_kpi_definition": "AVG of claim_amt by Birthdate [Text / value]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.claim_amt"
+                    ],
+                    "report_kpi_aggregation": "AVG",
+                    "worksheet_name": "Average Claim Amount",
+                    "canonical_kpi": {
+                        "kpi_id": "2dc0feb4-7802-462e-9fcd-f134b6cf6d02",
+                        "name": "Loss Severity",
+                        "definition": "Average cost per claim (incurred or paid).",
+                        "domain": "Actuarial & Risk",
+                        "sector": "insurance",
+                        "subdomain": "actuarial_and_risk",
+                        "aggregation_type": "AVG"
+                    },
+                    "similarity_score": 0.85,
+                    "confidence_score": 0.9,
+                    "similarity_rationale": "The report KPI 'AVG of claim_amt' with the context 'Average Claim Amount' closely matches the canonical KPI 'Loss Severity' (kpi_id: 2dc0feb4-7802-462e-9fcd-f134b6cf6d02). Both are defined as averages related to claim costs, aligning in mathematical intent, calculation logic (average), and business meaning (average cost per claim). The lineage 'Insurance Policies-2.csv.claim_amt' supports this alignment as it directly relates to claim amounts. The visual breakdown dimensions, while varied, do not contradict this interpretation. The aggregation (AVG) is compatible with the definition of 'Loss Severity.' Therefore, the match is made with a high confidence score.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "54a1831a-44ed-4b96-b2ae-2c6c48f4dabc",
+                    "report_kpi_name": "AVG of claim_amt by Car Make",
+                    "report_kpi_definition": "AVG of claim_amt by Car Make [Text / value]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.claim_amt"
+                    ],
+                    "report_kpi_aggregation": "AVG",
+                    "worksheet_name": "Average Claim Amount",
+                    "canonical_kpi": {
+                        "kpi_id": "2dc0feb4-7802-462e-9fcd-f134b6cf6d02",
+                        "name": "Loss Severity",
+                        "definition": "Average cost per claim (incurred or paid).",
+                        "domain": "Actuarial & Risk",
+                        "sector": "insurance",
+                        "subdomain": "actuarial_and_risk",
+                        "aggregation_type": "AVG"
+                    },
+                    "similarity_score": 0.85,
+                    "confidence_score": 0.9,
+                    "similarity_rationale": "The report KPI 'AVG of claim_amt' with the context 'Average Claim Amount' closely matches the canonical KPI 'Loss Severity' (kpi_id: 2dc0feb4-7802-462e-9fcd-f134b6cf6d02). Both are defined as averages related to claim costs, aligning in mathematical intent, calculation logic (average), and business meaning (average cost per claim). The lineage 'Insurance Policies-2.csv.claim_amt' supports this alignment as it directly relates to claim amounts. The visual breakdown dimensions, while varied, do not contradict this interpretation. The aggregation (AVG) is compatible with the definition of 'Loss Severity.' Therefore, the match is made with a high confidence score.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "d08ab525-9ba5-4e58-849d-aba221c0e2a0",
+                    "report_kpi_name": "AVG of claim_amt by Car Model",
+                    "report_kpi_definition": "AVG of claim_amt by Car Model [Text / value]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.claim_amt"
+                    ],
+                    "report_kpi_aggregation": "AVG",
+                    "worksheet_name": "Average Claim Amount",
+                    "canonical_kpi": {
+                        "kpi_id": "2dc0feb4-7802-462e-9fcd-f134b6cf6d02",
+                        "name": "Loss Severity",
+                        "definition": "Average cost per claim (incurred or paid).",
+                        "domain": "Actuarial & Risk",
+                        "sector": "insurance",
+                        "subdomain": "actuarial_and_risk",
+                        "aggregation_type": "AVG"
+                    },
+                    "similarity_score": 0.85,
+                    "confidence_score": 0.9,
+                    "similarity_rationale": "The report KPI 'AVG of claim_amt' with the context 'Average Claim Amount' closely matches the canonical KPI 'Loss Severity' (kpi_id: 2dc0feb4-7802-462e-9fcd-f134b6cf6d02). Both are defined as averages related to claim costs, aligning in mathematical intent, calculation logic (average), and business meaning (average cost per claim). The lineage 'Insurance Policies-2.csv.claim_amt' supports this alignment as it directly relates to claim amounts. The visual breakdown dimensions, while varied, do not contradict this interpretation. The aggregation (AVG) is compatible with the definition of 'Loss Severity.' Therefore, the match is made with a high confidence score.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "fb129d55-1cc3-4635-b26b-46320bccd065",
+                    "report_kpi_name": "AVG of claim_amt by Car Year",
+                    "report_kpi_definition": "AVG of claim_amt by Car Year [Text / value]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.claim_amt"
+                    ],
+                    "report_kpi_aggregation": "AVG",
+                    "worksheet_name": "Average Claim Amount",
+                    "canonical_kpi": {
+                        "kpi_id": "2dc0feb4-7802-462e-9fcd-f134b6cf6d02",
+                        "name": "Loss Severity",
+                        "definition": "Average cost per claim (incurred or paid).",
+                        "domain": "Actuarial & Risk",
+                        "sector": "insurance",
+                        "subdomain": "actuarial_and_risk",
+                        "aggregation_type": "AVG"
+                    },
+                    "similarity_score": 0.85,
+                    "confidence_score": 0.9,
+                    "similarity_rationale": "The report KPI 'AVG of claim_amt' with the context 'Average Claim Amount' closely matches the canonical KPI 'Loss Severity' (kpi_id: 2dc0feb4-7802-462e-9fcd-f134b6cf6d02). Both are defined as averages related to claim costs, aligning in mathematical intent, calculation logic (average), and business meaning (average cost per claim). The lineage 'Insurance Policies-2.csv.claim_amt' supports this alignment as it directly relates to claim amounts. The visual breakdown dimensions, while varied, do not contradict this interpretation. The aggregation (AVG) is compatible with the definition of 'Loss Severity.' Therefore, the match is made with a high confidence score.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "2c0a0d34-8348-41e5-8ad5-b046d988f3e4",
+                    "report_kpi_name": "AVG of claim_amt by Claim Amt",
+                    "report_kpi_definition": "AVG of claim_amt by Claim Amt [Text / value]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.claim_amt"
+                    ],
+                    "report_kpi_aggregation": "AVG",
+                    "worksheet_name": "Average Claim Amount",
+                    "canonical_kpi": {
+                        "kpi_id": "2dc0feb4-7802-462e-9fcd-f134b6cf6d02",
+                        "name": "Loss Severity",
+                        "definition": "Average cost per claim (incurred or paid).",
+                        "domain": "Actuarial & Risk",
+                        "sector": "insurance",
+                        "subdomain": "actuarial_and_risk",
+                        "aggregation_type": "AVG"
+                    },
+                    "similarity_score": 0.85,
+                    "confidence_score": 0.9,
+                    "similarity_rationale": "The report KPI 'AVG of claim_amt' with the context 'Average Claim Amount' closely matches the canonical KPI 'Loss Severity' (kpi_id: 2dc0feb4-7802-462e-9fcd-f134b6cf6d02). Both are defined as averages related to claim costs, aligning in mathematical intent, calculation logic (average), and business meaning (average cost per claim). The lineage 'Insurance Policies-2.csv.claim_amt' supports this alignment as it directly relates to claim amounts. The visual breakdown dimensions, while varied, do not contradict this interpretation. The aggregation (AVG) is compatible with the definition of 'Loss Severity.' Therefore, the match is made with a high confidence score.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "cb280e04-fcfe-4701-9058-bd6162028f06",
+                    "report_kpi_name": "AVG of claim_amt by Claim Freq",
+                    "report_kpi_definition": "AVG of claim_amt by Claim Freq [Text / value]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.claim_amt"
+                    ],
+                    "report_kpi_aggregation": "AVG",
+                    "worksheet_name": "Average Claim Amount",
+                    "canonical_kpi": {
+                        "kpi_id": "2dc0feb4-7802-462e-9fcd-f134b6cf6d02",
+                        "name": "Loss Severity",
+                        "definition": "Average cost per claim (incurred or paid).",
+                        "domain": "Actuarial & Risk",
+                        "sector": "insurance",
+                        "subdomain": "actuarial_and_risk",
+                        "aggregation_type": "AVG"
+                    },
+                    "similarity_score": 0.85,
+                    "confidence_score": 0.9,
+                    "similarity_rationale": "The report KPI 'AVG of claim_amt' with the context 'Average Claim Amount' closely matches the canonical KPI 'Loss Severity' (kpi_id: 2dc0feb4-7802-462e-9fcd-f134b6cf6d02). Both are defined as averages related to claim costs, aligning in mathematical intent, calculation logic (average), and business meaning (average cost per claim). The lineage 'Insurance Policies-2.csv.claim_amt' supports this alignment as it directly relates to claim amounts. The visual breakdown dimensions, while varied, do not contradict this interpretation. The aggregation (AVG) is compatible with the definition of 'Loss Severity.' Therefore, the match is made with a high confidence score.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "892a7fa7-7912-41b6-9d9c-f33d2040bfd5",
+                    "report_kpi_name": "AVG of claim_amt by Education",
+                    "report_kpi_definition": "AVG of claim_amt by Education [Text / value]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.claim_amt"
+                    ],
+                    "report_kpi_aggregation": "AVG",
+                    "worksheet_name": "Average Claim Amount",
+                    "canonical_kpi": {
+                        "kpi_id": "2dc0feb4-7802-462e-9fcd-f134b6cf6d02",
+                        "name": "Loss Severity",
+                        "definition": "Average cost per claim (incurred or paid).",
+                        "domain": "Actuarial & Risk",
+                        "sector": "insurance",
+                        "subdomain": "actuarial_and_risk",
+                        "aggregation_type": "AVG"
+                    },
+                    "similarity_score": 0.85,
+                    "confidence_score": 0.9,
+                    "similarity_rationale": "The report KPI 'AVG of claim_amt' with the context 'Average Claim Amount' closely matches the canonical KPI 'Loss Severity' (kpi_id: 2dc0feb4-7802-462e-9fcd-f134b6cf6d02). Both are defined as averages related to claim costs, aligning in mathematical intent, calculation logic (average), and business meaning (average cost per claim). The lineage 'Insurance Policies-2.csv.claim_amt' supports this alignment as it directly relates to claim amounts. The visual breakdown dimensions, while varied, do not contradict this interpretation. The aggregation (AVG) is compatible with the definition of 'Loss Severity.' Therefore, the match is made with a high confidence score.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "bc654694-23a3-414f-96d7-28e19dfdc41d",
+                    "report_kpi_name": "AVG of claim_amt by Gender",
+                    "report_kpi_definition": "AVG of claim_amt by Gender [Text / value]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.claim_amt"
+                    ],
+                    "report_kpi_aggregation": "AVG",
+                    "worksheet_name": "Average Claim Amount",
+                    "canonical_kpi": {
+                        "kpi_id": "2dc0feb4-7802-462e-9fcd-f134b6cf6d02",
+                        "name": "Loss Severity",
+                        "definition": "Average cost per claim (incurred or paid).",
+                        "domain": "Actuarial & Risk",
+                        "sector": "insurance",
+                        "subdomain": "actuarial_and_risk",
+                        "aggregation_type": "AVG"
+                    },
+                    "similarity_score": 0.85,
+                    "confidence_score": 0.9,
+                    "similarity_rationale": "The report KPI 'AVG of claim_amt' with the context 'Average Claim Amount' closely matches the canonical KPI 'Loss Severity' (kpi_id: 2dc0feb4-7802-462e-9fcd-f134b6cf6d02). Both are defined as averages related to claim costs, aligning in mathematical intent, calculation logic (average), and business meaning (average cost per claim). The lineage 'Insurance Policies-2.csv.claim_amt' supports this alignment as it directly relates to claim amounts. The visual breakdown dimensions, while varied, do not contradict this interpretation. The aggregation (AVG) is compatible with the definition of 'Loss Severity.' Therefore, the match is made with a high confidence score.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "d6914ab6-b39b-414d-a9d5-0a3e82de575e",
+                    "report_kpi_name": "AVG of claim_amt by Marital Status",
+                    "report_kpi_definition": "AVG of claim_amt by Marital Status [Text / value]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.claim_amt"
+                    ],
+                    "report_kpi_aggregation": "AVG",
+                    "worksheet_name": "Average Claim Amount",
+                    "canonical_kpi": {
+                        "kpi_id": "2dc0feb4-7802-462e-9fcd-f134b6cf6d02",
+                        "name": "Loss Severity",
+                        "definition": "Average cost per claim (incurred or paid).",
+                        "domain": "Actuarial & Risk",
+                        "sector": "insurance",
+                        "subdomain": "actuarial_and_risk",
+                        "aggregation_type": "AVG"
+                    },
+                    "similarity_score": 0.85,
+                    "confidence_score": 0.9,
+                    "similarity_rationale": "The report KPI 'AVG of claim_amt' with the context 'Average Claim Amount' closely matches the canonical KPI 'Loss Severity' (kpi_id: 2dc0feb4-7802-462e-9fcd-f134b6cf6d02). Both are defined as averages related to claim costs, aligning in mathematical intent, calculation logic (average), and business meaning (average cost per claim). The lineage 'Insurance Policies-2.csv.claim_amt' supports this alignment as it directly relates to claim amounts. The visual breakdown dimensions, while varied, do not contradict this interpretation. The aggregation (AVG) is compatible with the definition of 'Loss Severity.' Therefore, the match is made with a high confidence score.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "0bea8b15-d2cc-4349-b707-ba5310f8e67d",
+                    "report_kpi_name": "AVG of Insurance Policies - Insurance Policies-2.csv.household_income",
+                    "report_kpi_definition": "AVG of Insurance Policies - Insurance Policies-2.csv.household_income [Text / value]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.household_income"
+                    ],
+                    "report_kpi_aggregation": "AVG",
+                    "worksheet_name": "Average Household Income",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'AVG of Insurance Policies - Insurance Policies-2.csv.household_income' is about the average household income of insurance policy holders. The canonical KPIs provided are related to insurance claims (Loss Frequency, Loss Severity, Frequency Trend, Claims Severity) and actuarial valuation (Embedded Value). The report KPI does not match any of the canonical KPIs in terms of business meaning or calculation logic. Household income is not related to loss or claims severity, and it is not a measure of insurance policy performance or risk. The aggregation (AVG) is compatible with the report KPI, but there is no canonical KPI that matches the business logic. Therefore, the matched_kpi_id is null, and the confidence_score is 0.0, indicating no match.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "87d564df-2571-406b-bec6-4cabc8e493ff",
+                    "report_kpi_name": "AVG of household_income by Date calculation",
+                    "report_kpi_definition": "AVG of household_income by Date calculation [Text / value]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.household_income"
+                    ],
+                    "report_kpi_aggregation": "AVG",
+                    "worksheet_name": "Average Household Income",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'AVG of household_income' is not related to any of the provided canonical KPIs. The name and definition of the canonical KPIs suggest they are related to insurance claims, frequency, severity, and actuarial valuation. In contrast, 'household_income' is a demographic or socio-economic metric. According to the HARD RULE \u2014 Semantic false friends, 'Household income \u2260 Loss/Claims Severity, Account Size, or average premium per account.' Therefore, there is no genuine match between the report KPI and the canonical KPIs. The aggregation (AVG) and field lineage (household_income from Insurance Policies data) further support that this KPI is distinct from the provided canonical candidates. As per the guidelines, when no candidate genuinely matches the business logic, matched_kpi_id should be set to null and confidence_score below 0.80. In this case, both similarity_score and confidence_score are set to 0.0 due to the complete lack of relevance between the report KPI and the canonical KPIs.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "b50f7488-3882-4e9b-89df-41879e3454c8",
+                    "report_kpi_name": "AVG of household_income by Birthdate",
+                    "report_kpi_definition": "AVG of household_income by Birthdate [Text / value]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.household_income"
+                    ],
+                    "report_kpi_aggregation": "AVG",
+                    "worksheet_name": "Average Household Income",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'AVG of household_income' is not related to any of the provided canonical KPIs. The name and definition of the canonical KPIs suggest they are related to insurance claims, frequency, severity, and actuarial valuation. In contrast, 'household_income' is a demographic or socio-economic metric. According to the HARD RULE \u2014 Semantic false friends, 'Household income \u2260 Loss/Claims Severity, Account Size, or average premium per account.' Therefore, there is no genuine match between the report KPI and the canonical KPIs. The aggregation (AVG) and field lineage (household_income from Insurance Policies data) further support that this KPI is distinct from the provided canonical candidates. As per the guidelines, when no candidate genuinely matches the business logic, matched_kpi_id should be set to null and confidence_score below 0.80. In this case, both similarity_score and confidence_score are set to 0.0 due to the complete lack of relevance between the report KPI and the canonical KPIs.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "91349838-9709-45c5-9193-dd9c061ec4e1",
+                    "report_kpi_name": "AVG of household_income by Car Make",
+                    "report_kpi_definition": "AVG of household_income by Car Make [Text / value]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.household_income"
+                    ],
+                    "report_kpi_aggregation": "AVG",
+                    "worksheet_name": "Average Household Income",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'AVG of household_income' is not related to any of the provided canonical KPIs. The name and definition of the canonical KPIs suggest they are related to insurance claims, frequency, severity, and actuarial valuation. In contrast, 'household_income' is a demographic or socio-economic metric. According to the HARD RULE \u2014 Semantic false friends, 'Household income \u2260 Loss/Claims Severity, Account Size, or average premium per account.' Therefore, there is no genuine match between the report KPI and the canonical KPIs. The aggregation (AVG) and field lineage (household_income from Insurance Policies data) further support that this KPI is distinct from the provided canonical candidates. As per the guidelines, when no candidate genuinely matches the business logic, matched_kpi_id should be set to null and confidence_score below 0.80. In this case, both similarity_score and confidence_score are set to 0.0 due to the complete lack of relevance between the report KPI and the canonical KPIs.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "879244d5-d41b-477a-adf8-69f626bbf825",
+                    "report_kpi_name": "AVG of household_income by Car Model",
+                    "report_kpi_definition": "AVG of household_income by Car Model [Text / value]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.household_income"
+                    ],
+                    "report_kpi_aggregation": "AVG",
+                    "worksheet_name": "Average Household Income",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'AVG of household_income' is not related to any of the provided canonical KPIs. The name and definition of the canonical KPIs suggest they are related to insurance claims, frequency, severity, and actuarial valuation. In contrast, 'household_income' is a demographic or socio-economic metric. According to the HARD RULE \u2014 Semantic false friends, 'Household income \u2260 Loss/Claims Severity, Account Size, or average premium per account.' Therefore, there is no genuine match between the report KPI and the canonical KPIs. The aggregation (AVG) and field lineage (household_income from Insurance Policies data) further support that this KPI is distinct from the provided canonical candidates. As per the guidelines, when no candidate genuinely matches the business logic, matched_kpi_id should be set to null and confidence_score below 0.80. In this case, both similarity_score and confidence_score are set to 0.0 due to the complete lack of relevance between the report KPI and the canonical KPIs.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "0ea959f1-91e7-4f5b-90ae-d515b69ce344",
+                    "report_kpi_name": "AVG of household_income by Car Year",
+                    "report_kpi_definition": "AVG of household_income by Car Year [Text / value]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.household_income"
+                    ],
+                    "report_kpi_aggregation": "AVG",
+                    "worksheet_name": "Average Household Income",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'AVG of household_income' is not related to any of the provided canonical KPIs. The name and definition of the canonical KPIs suggest they are related to insurance claims, frequency, severity, and actuarial valuation. In contrast, 'household_income' is a demographic or socio-economic metric. According to the HARD RULE \u2014 Semantic false friends, 'Household income \u2260 Loss/Claims Severity, Account Size, or average premium per account.' Therefore, there is no genuine match between the report KPI and the canonical KPIs. The aggregation (AVG) and field lineage (household_income from Insurance Policies data) further support that this KPI is distinct from the provided canonical candidates. As per the guidelines, when no candidate genuinely matches the business logic, matched_kpi_id should be set to null and confidence_score below 0.80. In this case, both similarity_score and confidence_score are set to 0.0 due to the complete lack of relevance between the report KPI and the canonical KPIs.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "02cfe201-fc79-4de4-9cf4-21d4d3c6363f",
+                    "report_kpi_name": "AVG of household_income by Claim Freq",
+                    "report_kpi_definition": "AVG of household_income by Claim Freq [Text / value]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.household_income"
+                    ],
+                    "report_kpi_aggregation": "AVG",
+                    "worksheet_name": "Average Household Income",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'AVG of household_income' is not related to any of the provided canonical KPIs. The name and definition of the canonical KPIs suggest they are related to insurance claims, frequency, severity, and actuarial valuation. In contrast, 'household_income' is a demographic or socio-economic metric. According to the HARD RULE \u2014 Semantic false friends, 'Household income \u2260 Loss/Claims Severity, Account Size, or average premium per account.' Therefore, there is no genuine match between the report KPI and the canonical KPIs. The aggregation (AVG) and field lineage (household_income from Insurance Policies data) further support that this KPI is distinct from the provided canonical candidates. As per the guidelines, when no candidate genuinely matches the business logic, matched_kpi_id should be set to null and confidence_score below 0.80. In this case, both similarity_score and confidence_score are set to 0.0 due to the complete lack of relevance between the report KPI and the canonical KPIs.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "23e188c4-460b-4da6-985f-cb4c9b1136e4",
+                    "report_kpi_name": "AVG of household_income by Education",
+                    "report_kpi_definition": "AVG of household_income by Education [Text / value]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.household_income"
+                    ],
+                    "report_kpi_aggregation": "AVG",
+                    "worksheet_name": "Average Household Income",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'AVG of household_income' is not related to any of the provided canonical KPIs. The name and definition of the canonical KPIs suggest they are related to insurance claims, frequency, severity, and actuarial valuation. In contrast, 'household_income' is a demographic or socio-economic metric. According to the HARD RULE \u2014 Semantic false friends, 'Household income \u2260 Loss/Claims Severity, Account Size, or average premium per account.' Therefore, there is no genuine match between the report KPI and the canonical KPIs. The aggregation (AVG) and field lineage (household_income from Insurance Policies data) further support that this KPI is distinct from the provided canonical candidates. As per the guidelines, when no candidate genuinely matches the business logic, matched_kpi_id should be set to null and confidence_score below 0.80. In this case, both similarity_score and confidence_score are set to 0.0 due to the complete lack of relevance between the report KPI and the canonical KPIs.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "03242db0-a310-4eb5-bd85-e8b16dde7674",
+                    "report_kpi_name": "AVG of household_income by Gender",
+                    "report_kpi_definition": "AVG of household_income by Gender [Text / value]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.household_income"
+                    ],
+                    "report_kpi_aggregation": "AVG",
+                    "worksheet_name": "Average Household Income",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'AVG of household_income' is not related to any of the provided canonical KPIs. The name and definition of the canonical KPIs suggest they are related to insurance claims, frequency, severity, and actuarial valuation. In contrast, 'household_income' is a demographic or socio-economic metric. According to the HARD RULE \u2014 Semantic false friends, 'Household income \u2260 Loss/Claims Severity, Account Size, or average premium per account.' Therefore, there is no genuine match between the report KPI and the canonical KPIs. The aggregation (AVG) and field lineage (household_income from Insurance Policies data) further support that this KPI is distinct from the provided canonical candidates. As per the guidelines, when no candidate genuinely matches the business logic, matched_kpi_id should be set to null and confidence_score below 0.80. In this case, both similarity_score and confidence_score are set to 0.0 due to the complete lack of relevance between the report KPI and the canonical KPIs.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "8f51fd98-ad9a-4c80-9b39-777d86a82e78",
+                    "report_kpi_name": "AVG of household_income by Household Income",
+                    "report_kpi_definition": "AVG of household_income by Household Income [Text / value]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.household_income"
+                    ],
+                    "report_kpi_aggregation": "AVG",
+                    "worksheet_name": "Average Household Income",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'AVG of household_income' is not related to any of the provided canonical KPIs. The name and definition of the canonical KPIs suggest they are related to insurance claims, frequency, severity, and actuarial valuation. In contrast, 'household_income' is a demographic or socio-economic metric. According to the HARD RULE \u2014 Semantic false friends, 'Household income \u2260 Loss/Claims Severity, Account Size, or average premium per account.' Therefore, there is no genuine match between the report KPI and the canonical KPIs. The aggregation (AVG) and field lineage (household_income from Insurance Policies data) further support that this KPI is distinct from the provided canonical candidates. As per the guidelines, when no candidate genuinely matches the business logic, matched_kpi_id should be set to null and confidence_score below 0.80. In this case, both similarity_score and confidence_score are set to 0.0 due to the complete lack of relevance between the report KPI and the canonical KPIs.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "220c2262-9b70-4e70-b26a-1981caf36988",
+                    "report_kpi_name": "AVG of household_income by Marital Status",
+                    "report_kpi_definition": "AVG of household_income by Marital Status [Text / value]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv.household_income"
+                    ],
+                    "report_kpi_aggregation": "AVG",
+                    "worksheet_name": "Average Household Income",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'AVG of household_income' is not related to any of the provided canonical KPIs. The name and definition of the canonical KPIs suggest they are related to insurance claims, frequency, severity, and actuarial valuation. In contrast, 'household_income' is a demographic or socio-economic metric. According to the HARD RULE \u2014 Semantic false friends, 'Household income \u2260 Loss/Claims Severity, Account Size, or average premium per account.' Therefore, there is no genuine match between the report KPI and the canonical KPIs. The aggregation (AVG) and field lineage (household_income from Insurance Policies data) further support that this KPI is distinct from the provided canonical candidates. As per the guidelines, when no candidate genuinely matches the business logic, matched_kpi_id should be set to null and confidence_score below 0.80. In this case, both similarity_score and confidence_score are set to 0.0 due to the complete lack of relevance between the report KPI and the canonical KPIs.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "45e0b954-774f-4c26-a6d4-0fa596675dfa",
+                    "report_kpi_name": "Total Insurance Policues",
+                    "report_kpi_definition": "COUNTD([ID (Table - Insurance Policies - Insurance Policies-2.csv)])",
+                    "report_kpi_lineage": [
+                        "ID (Table - Insurance Policies - Insurance Policies-2.csv)"
+                    ],
+                    "report_kpi_aggregation": "COUNTD",
+                    "worksheet_name": "Marital Status",
+                    "canonical_kpi": {
+                        "kpi_id": "72cc8d50-9cd9-4490-afb5-41730e4e5e95",
+                        "name": "Total Policy Count",
+                        "definition": "Aggregated Policy Production Count",
+                        "domain": "Distribution",
+                        "sector": "insurance",
+                        "subdomain": "distribution",
+                        "aggregation_type": "COUNT"
+                    },
+                    "similarity_score": 0.93,
+                    "confidence_score": 0.88,
+                    "similarity_rationale": "Fuzzy alias match: 'Total Insured Policies' (typo tolerance)",
+                    "confidence_rationale": "Phase 1 fuzzy alias match (sector fallback)",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "fef1e2af-69d9-43c0-9397-f50574d65f32",
+                    "report_kpi_name": "Total Insurance Policues",
+                    "report_kpi_definition": "COUNTD([ID (Table - Insurance Policies - Insurance Policies-2.csv)])",
+                    "report_kpi_lineage": [
+                        "ID (Table - Insurance Policies - Insurance Policies-2.csv)"
+                    ],
+                    "report_kpi_aggregation": "COUNTD",
+                    "worksheet_name": "Gender",
+                    "canonical_kpi": {
+                        "kpi_id": "72cc8d50-9cd9-4490-afb5-41730e4e5e95",
+                        "name": "Total Policy Count",
+                        "definition": "Aggregated Policy Production Count",
+                        "domain": "Distribution",
+                        "sector": "insurance",
+                        "subdomain": "distribution",
+                        "aggregation_type": "COUNT"
+                    },
+                    "similarity_score": 0.93,
+                    "confidence_score": 0.88,
+                    "similarity_rationale": "Fuzzy alias match: 'Total Insured Policies' (typo tolerance)",
+                    "confidence_rationale": "Phase 1 fuzzy alias match (sector fallback)",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "e65d5f0d-3420-4c65-a2ad-024fef849f40",
+                    "report_kpi_name": "SUM of Calculation_80361114492071937",
+                    "report_kpi_definition": "SUM of Calculation_80361114492071937 [Pie]",
+                    "report_kpi_lineage": [
+                        "Calculation_80361114492071937"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Gender",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "Quality gate: opaque Tableau Calculation_* lacks business meaning",
+                    "confidence_rationale": "Quality gate: opaque Tableau Calculation_* lacks business meaning",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "8a9c2a91-c65a-4aea-8def-e3d1c5603338",
+                    "report_kpi_name": "SUM of Calculation_80361114492084227",
+                    "report_kpi_definition": "SUM of Calculation_80361114492084227 [Pie]",
+                    "report_kpi_lineage": [
+                        "Calculation_80361114492084227"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Gender",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "Quality gate: opaque Tableau Calculation_* lacks business meaning",
+                    "confidence_rationale": "Quality gate: opaque Tableau Calculation_* lacks business meaning",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "ce88fdb0-1bfd-4680-bf50-877510d31156",
+                    "report_kpi_name": "Total Insurance Policues",
+                    "report_kpi_definition": "COUNTD([ID (Table - Insurance Policies - Insurance Policies-2.csv)])",
+                    "report_kpi_lineage": [
+                        "ID (Table - Insurance Policies - Insurance Policies-2.csv)"
+                    ],
+                    "report_kpi_aggregation": "COUNTD",
+                    "worksheet_name": "Education",
+                    "canonical_kpi": {
+                        "kpi_id": "72cc8d50-9cd9-4490-afb5-41730e4e5e95",
+                        "name": "Total Policy Count",
+                        "definition": "Aggregated Policy Production Count",
+                        "domain": "Distribution",
+                        "sector": "insurance",
+                        "subdomain": "distribution",
+                        "aggregation_type": "COUNT"
+                    },
+                    "similarity_score": 0.93,
+                    "confidence_score": 0.88,
+                    "similarity_rationale": "Fuzzy alias match: 'Total Insured Policies' (typo tolerance)",
+                    "confidence_rationale": "Phase 1 fuzzy alias match (sector fallback)",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "446cd470-ee16-40cf-aef6-fda4e895f12b",
+                    "report_kpi_name": "Total Insurance Policues",
+                    "report_kpi_definition": "COUNTD([ID (Table - Insurance Policies - Insurance Policies-2.csv)])",
+                    "report_kpi_lineage": [
+                        "ID (Table - Insurance Policies - Insurance Policies-2.csv)"
+                    ],
+                    "report_kpi_aggregation": "COUNTD",
+                    "worksheet_name": "Age",
+                    "canonical_kpi": {
+                        "kpi_id": "72cc8d50-9cd9-4490-afb5-41730e4e5e95",
+                        "name": "Total Policy Count",
+                        "definition": "Aggregated Policy Production Count",
+                        "domain": "Distribution",
+                        "sector": "insurance",
+                        "subdomain": "distribution",
+                        "aggregation_type": "COUNT"
+                    },
+                    "similarity_score": 0.93,
+                    "confidence_score": 0.88,
+                    "similarity_rationale": "Fuzzy alias match: 'Total Insured Policies' (typo tolerance)",
+                    "confidence_rationale": "Phase 1 fuzzy alias match (sector fallback)",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "76e1e121-b5e7-412a-96ee-01d48bde7efd",
+                    "report_kpi_name": "Total Insurance Policues",
+                    "report_kpi_definition": "COUNTD([ID (Table - Insurance Policies - Insurance Policies-2.csv)])",
+                    "report_kpi_lineage": [
+                        "ID (Table - Insurance Policies - Insurance Policies-2.csv)"
+                    ],
+                    "report_kpi_aggregation": "COUNTD",
+                    "worksheet_name": "Car Model",
+                    "canonical_kpi": {
+                        "kpi_id": "72cc8d50-9cd9-4490-afb5-41730e4e5e95",
+                        "name": "Total Policy Count",
+                        "definition": "Aggregated Policy Production Count",
+                        "domain": "Distribution",
+                        "sector": "insurance",
+                        "subdomain": "distribution",
+                        "aggregation_type": "COUNT"
+                    },
+                    "similarity_score": 0.93,
+                    "confidence_score": 0.88,
+                    "similarity_rationale": "Fuzzy alias match: 'Total Insured Policies' (typo tolerance)",
+                    "confidence_rationale": "Phase 1 fuzzy alias match (sector fallback)",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "219a698f-0e33-4ef5-abcb-06a792b8f96a",
+                    "report_kpi_name": "Total Insurance Policues",
+                    "report_kpi_definition": "COUNTD([ID (Table - Insurance Policies - Insurance Policies-2.csv)])",
+                    "report_kpi_lineage": [
+                        "ID (Table - Insurance Policies - Insurance Policies-2.csv)"
+                    ],
+                    "report_kpi_aggregation": "COUNTD",
+                    "worksheet_name": "Car Brand",
+                    "canonical_kpi": {
+                        "kpi_id": "72cc8d50-9cd9-4490-afb5-41730e4e5e95",
+                        "name": "Total Policy Count",
+                        "definition": "Aggregated Policy Production Count",
+                        "domain": "Distribution",
+                        "sector": "insurance",
+                        "subdomain": "distribution",
+                        "aggregation_type": "COUNT"
+                    },
+                    "similarity_score": 0.93,
+                    "confidence_score": 0.88,
+                    "similarity_rationale": "Fuzzy alias match: 'Total Insured Policies' (typo tolerance)",
+                    "confidence_rationale": "Phase 1 fuzzy alias match (sector fallback)",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "cdec5271-9018-41d3-b4b9-781188d1ce74",
+                    "report_kpi_name": "COUNT of Insurance Policies - Insurance Policies-2.csv_FB9BE58E26C74B688723032E69267340",
+                    "report_kpi_definition": "COUNT of Insurance Policies - Insurance Policies-2.csv_FB9BE58E26C74B688723032E69267340 [Line]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv_FB9BE58E26C74B688723032E69267340"
+                    ],
+                    "report_kpi_aggregation": "COUNT",
+                    "worksheet_name": "Car Brand",
+                    "canonical_kpi": {
+                        "kpi_id": "1254cef2-f6b8-497e-8c28-4cf725a9eca3",
+                        "name": "Policy Count",
+                        "definition": "Total number of policies",
+                        "domain": "Distribution",
+                        "sector": "insurance",
+                        "subdomain": "distribution",
+                        "aggregation_type": "COUNT"
+                    },
+                    "similarity_score": 0.85,
+                    "confidence_score": 0.9,
+                    "similarity_rationale": "The report KPI 'COUNT of Insurance Policies' is compared against the canonical candidates. The aggregation 'COUNT' matches with the definition of 'Policy Count' (kpi_id: '1254cef2-f6b8-497e-8c28-4cf725a9eca3'), which is 'Total number of policies'. The business meaning aligns as both are related to counting insurance policies. The 'worksheet_context' and 'visual_breakdown_dimensions' provide supporting context that the count is related to 'Car Brand' and 'Car Make', which is a specific segmentation but does not alter the fundamental count of insurance policies. Other canonical candidates either have slightly different definitions or are not as directly related to a simple count of policies. Therefore, 'Policy Count' is the most appropriate match with a high confidence score.",
+                    "confidence_rationale": "Phase 3 LLM (sector fallback)",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "39978544-2621-4f64-b163-b19d4dbe14a6",
+                    "report_kpi_name": "COUNT of Insurance Policies - Insurance Policies-2.csv_FB9BE58E26C74B688723032E69267340 by Car Make",
+                    "report_kpi_definition": "COUNT of Insurance Policies - Insurance Policies-2.csv_FB9BE58E26C74B688723032E69267340 by Car Make [Line]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv_FB9BE58E26C74B688723032E69267340"
+                    ],
+                    "report_kpi_aggregation": "COUNT",
+                    "worksheet_name": "Car Brand",
+                    "canonical_kpi": {
+                        "kpi_id": "1254cef2-f6b8-497e-8c28-4cf725a9eca3",
+                        "name": "Policy Count",
+                        "definition": "Total number of policies",
+                        "domain": "Distribution",
+                        "sector": "insurance",
+                        "subdomain": "distribution",
+                        "aggregation_type": "COUNT"
+                    },
+                    "similarity_score": 0.85,
+                    "confidence_score": 0.9,
+                    "similarity_rationale": "The report KPI 'COUNT of Insurance Policies' is compared against the canonical candidates. The aggregation 'COUNT' matches with the definition of 'Policy Count' (kpi_id: '1254cef2-f6b8-497e-8c28-4cf725a9eca3'), which is 'Total number of policies'. The business meaning aligns as both are related to counting insurance policies. The 'worksheet_context' and 'visual_breakdown_dimensions' provide supporting context that the count is related to 'Car Brand' and 'Car Make', which is a specific segmentation but does not alter the fundamental count of insurance policies. Other canonical candidates either have slightly different definitions or are not as directly related to a simple count of policies. Therefore, 'Policy Count' is the most appropriate match with a high confidence score.",
+                    "confidence_rationale": "Phase 3 LLM (sector fallback)",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "28be35e3-cd29-4892-affd-4d540c58952e",
+                    "report_kpi_name": "COUNT of Insurance Policies - Insurance Policies-2.csv_FB9BE58E26C74B688723032E69267340 by Total Insurance Policues",
+                    "report_kpi_definition": "COUNT of Insurance Policies - Insurance Policies-2.csv_FB9BE58E26C74B688723032E69267340 by Total Insurance Policues [Line]",
+                    "report_kpi_lineage": [
+                        "Insurance Policies - Insurance Policies-2.csv_FB9BE58E26C74B688723032E69267340"
+                    ],
+                    "report_kpi_aggregation": "COUNT",
+                    "worksheet_name": "Car Brand",
+                    "canonical_kpi": {
+                        "kpi_id": "1254cef2-f6b8-497e-8c28-4cf725a9eca3",
+                        "name": "Policy Count",
+                        "definition": "Total number of policies",
+                        "domain": "Distribution",
+                        "sector": "insurance",
+                        "subdomain": "distribution",
+                        "aggregation_type": "COUNT"
+                    },
+                    "similarity_score": 0.85,
+                    "confidence_score": 0.9,
+                    "similarity_rationale": "The report KPI 'COUNT of Insurance Policies' is compared against the canonical candidates. The aggregation 'COUNT' matches with the definition of 'Policy Count' (kpi_id: '1254cef2-f6b8-497e-8c28-4cf725a9eca3'), which is 'Total number of policies'. The business meaning aligns as both are related to counting insurance policies. The 'worksheet_context' and 'visual_breakdown_dimensions' provide supporting context that the count is related to 'Car Brand' and 'Car Make', which is a specific segmentation but does not alter the fundamental count of insurance policies. Other canonical candidates either have slightly different definitions or are not as directly related to a simple count of policies. Therefore, 'Policy Count' is the most appropriate match with a high confidence score.",
+                    "confidence_rationale": "Phase 3 LLM (sector fallback)",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "433c2fb2-1dc1-4707-aa7a-ba05017d387a",
+                    "report_kpi_name": "Total Insurance Policues",
+                    "report_kpi_definition": "COUNTD([ID (Table - Insurance Policies - Insurance Policies-2.csv)])",
+                    "report_kpi_lineage": [
+                        "ID (Table - Insurance Policies - Insurance Policies-2.csv)"
+                    ],
+                    "report_kpi_aggregation": "COUNTD",
+                    "worksheet_name": "Claim Frequency",
+                    "canonical_kpi": {
+                        "kpi_id": "72cc8d50-9cd9-4490-afb5-41730e4e5e95",
+                        "name": "Total Policy Count",
+                        "definition": "Aggregated Policy Production Count",
+                        "domain": "Distribution",
+                        "sector": "insurance",
+                        "subdomain": "distribution",
+                        "aggregation_type": "COUNT"
+                    },
+                    "similarity_score": 0.93,
+                    "confidence_score": 0.88,
+                    "similarity_rationale": "Fuzzy alias match: 'Total Insured Policies' (typo tolerance)",
+                    "confidence_rationale": "Phase 1 fuzzy alias match (sector fallback)",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "ada3f446-27a1-4a40-8e25-f537bc76f28b",
+                    "report_kpi_name": "Total Insurance Policues",
+                    "report_kpi_definition": "COUNTD([ID (Table - Insurance Policies - Insurance Policies-2.csv)])",
+                    "report_kpi_lineage": [
+                        "ID (Table - Insurance Policies - Insurance Policies-2.csv)"
+                    ],
+                    "report_kpi_aggregation": "COUNTD",
+                    "worksheet_name": "Car Year Breakdown",
+                    "canonical_kpi": {
+                        "kpi_id": "72cc8d50-9cd9-4490-afb5-41730e4e5e95",
+                        "name": "Total Policy Count",
+                        "definition": "Aggregated Policy Production Count",
+                        "domain": "Distribution",
+                        "sector": "insurance",
+                        "subdomain": "distribution",
+                        "aggregation_type": "COUNT"
+                    },
+                    "similarity_score": 0.93,
+                    "confidence_score": 0.88,
+                    "similarity_rationale": "Fuzzy alias match: 'Total Insured Policies' (typo tolerance)",
+                    "confidence_rationale": "Phase 1 fuzzy alias match (sector fallback)",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "4afd18a6-7284-46b9-8549-6f2dfb4cafc7",
+                    "report_kpi_name": "Total Insurance Policies by Age",
+                    "report_kpi_definition": "Total number of insurance policies by age group. | COUNTD(ID) by Age | Age worksheet",
+                    "report_kpi_lineage": [],
+                    "report_kpi_aggregation": "COUNTD",
+                    "worksheet_name": null,
+                    "canonical_kpi": {
+                        "kpi_id": "1254cef2-f6b8-497e-8c28-4cf725a9eca3",
+                        "name": "Policy Count",
+                        "definition": "Total number of policies",
+                        "domain": "Distribution",
+                        "sector": "insurance",
+                        "subdomain": "distribution",
+                        "aggregation_type": "COUNT"
+                    },
+                    "similarity_score": 0.93,
+                    "confidence_score": 0.88,
+                    "similarity_rationale": "Fuzzy alias match: '# of Insurance Policies' (typo tolerance)",
+                    "confidence_rationale": "Phase 1 fuzzy alias match (sector fallback)",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "f977febb-0809-4aa9-81ae-49c3b85f5580",
+                    "report_kpi_name": "Average Claim Amount by Car Make",
+                    "report_kpi_definition": "Average amount claimed for insurance policies by car make. | AVG(Claim Amt) by Car Make | Average Claim Amount worksheet",
+                    "report_kpi_lineage": [],
+                    "report_kpi_aggregation": "AVG",
+                    "worksheet_name": null,
+                    "canonical_kpi": {
+                        "kpi_id": "2dc0feb4-7802-462e-9fcd-f134b6cf6d02",
+                        "name": "Loss Severity",
+                        "definition": "Average cost per claim (incurred or paid).",
+                        "domain": "Actuarial & Risk",
+                        "sector": "insurance",
+                        "subdomain": "actuarial_and_risk",
+                        "aggregation_type": "AVG"
+                    },
+                    "similarity_score": 0.85,
+                    "confidence_score": 0.9,
+                    "similarity_rationale": "The report KPI 'Average Claim Amount' is compared against the canonical candidates. The calculation logic 'AVG(Claim Amt) by Car Make' indicates an average cost per claim, which aligns with the definition of 'Loss Severity' (kpi_id: '2dc0feb4-7802-462e-9fcd-f134b6cf6d02') as 'Average cost per claim (incurred or paid).' The aggregation 'AVG' is compatible with the concept of 'Loss Severity.' Although the name 'Average Claim Amount' is not identical to 'Loss Severity,' the underlying business meaning and mathematical intent are closely related. The other candidates either do not match the aggregation or the business meaning. Therefore, 'Loss Severity' is the most appropriate match with a high confidence score.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "efcc8488-8f5b-4ae3-b126-8c573fad91c4",
+                    "report_kpi_name": "Total Insurance Policies by Car Make",
+                    "report_kpi_definition": "Total number of insurance policies by car brand. | COUNTD(ID) by Car Make | Car Brand worksheet",
+                    "report_kpi_lineage": [],
+                    "report_kpi_aggregation": "COUNTD",
+                    "worksheet_name": null,
+                    "canonical_kpi": {
+                        "kpi_id": "1254cef2-f6b8-497e-8c28-4cf725a9eca3",
+                        "name": "Policy Count",
+                        "definition": "Total number of policies",
+                        "domain": "Distribution",
+                        "sector": "insurance",
+                        "subdomain": "distribution",
+                        "aggregation_type": "COUNT"
+                    },
+                    "similarity_score": 0.93,
+                    "confidence_score": 0.88,
+                    "similarity_rationale": "Fuzzy alias match: '# of Insurance Policies' (typo tolerance)",
+                    "confidence_rationale": "Phase 1 fuzzy alias match (sector fallback)",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "d0fc26a3-d574-460f-9366-c9a303ec2192",
+                    "report_kpi_name": "Claim Frequency",
+                    "report_kpi_definition": "Total frequency of claims. | SUM(Claim Freq) | Claim Frequency worksheet",
+                    "report_kpi_lineage": [],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": null,
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "Quality gate: aggregation mismatch (SUM vs PCT for 'Loss Frequency')",
+                    "confidence_rationale": "Quality gate: aggregation mismatch (SUM vs PCT for 'Loss Frequency')",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "5141d34c-e005-4947-8fef-3fb38abe11b4",
+                    "report_kpi_name": "Total Claim Amount by Car Model",
+                    "report_kpi_definition": "Total amount claimed for insurance policies by car model. | SUM(Claim Amt) by Car Model | Total Claim Amount worksheet",
+                    "report_kpi_lineage": [],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": null,
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "Quality gate: aggregation mismatch (SUM vs AVG for 'Loss Severity')",
+                    "confidence_rationale": "Quality gate: aggregation mismatch (SUM vs AVG for 'Loss Severity')",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "1dbc25f0-5fbd-401c-a2f6-c5b2665a2aed",
+                    "report_kpi_name": "Total Insurance Policies by Education",
+                    "report_kpi_definition": "Total number of insurance policies by education level of policyholders. | COUNTD(ID) by Education | Education worksheet",
+                    "report_kpi_lineage": [],
+                    "report_kpi_aggregation": "COUNTD",
+                    "worksheet_name": null,
+                    "canonical_kpi": {
+                        "kpi_id": "1254cef2-f6b8-497e-8c28-4cf725a9eca3",
+                        "name": "Policy Count",
+                        "definition": "Total number of policies",
+                        "domain": "Distribution",
+                        "sector": "insurance",
+                        "subdomain": "distribution",
+                        "aggregation_type": "COUNT"
+                    },
+                    "similarity_score": 0.93,
+                    "confidence_score": 0.88,
+                    "similarity_rationale": "Fuzzy alias match: '# of Insurance Policies' (typo tolerance)",
+                    "confidence_rationale": "Phase 1 fuzzy alias match (sector fallback)",
+                    "mapping_status": "pending_review",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "64486e61-73c8-4d0a-9f76-b7bd807176f4",
+                    "report_kpi_name": "Average Household Income by Marital Status",
+                    "report_kpi_definition": "Average household income of policyholders by marital status. | AVG(Household Income) by Marital Status | Average Household Income worksheet",
+                    "report_kpi_lineage": [],
+                    "report_kpi_aggregation": "AVG",
+                    "worksheet_name": null,
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'Average Household Income' with calculation logic 'AVG(Household Income) by Marital Status' does not match any of the provided canonical KPIs. The canonical KPIs provided are related to insurance and claims metrics (e.g., Loss Severity, Retention %, Embedded Value, Claims Severity, Retention Ratio), which are semantically unrelated to household income. The aggregation method (AVG) matches, but the business meaning and field lineage do not align with any canonical KPI. According to the matching guidelines, particularly guideline 7, 'Household income \u2260 Loss/Claims Severity, Account Size, or average premium per account,' which indicates that household income is a semantic false friend to the provided canonical KPIs. Therefore, the matched_kpi_id is set to null, and the confidence_score is set below 0.80, adhering to guideline 4.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                }
+            ]
+        },
+        {
+            "dashboard_name": "Cross Sell1",
+            "dashboard_id": 2,
+            "ontology_sector": "insurance",
+            "ontology_subdomain": "marketing",
+            "items": [
+                {
+                    "mapping_id": "596afb94-eaa9-47b1-9156-d8b2a52c87ce",
+                    "report_kpi_name": "Achieved_Renewal",
+                    "report_kpi_definition": "SUM([Amount (Table - brokerage_202001231040)]) - 16755532",
+                    "report_kpi_lineage": [
+                        "Amount (Table - brokerage_202001231040)"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Renewal",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.4,
+                    "confidence_score": 0.6,
+                    "similarity_rationale": "The report KPI 'Achieved_Renewal' with aggregation 'SUM' and lineage from 'Amount (Table - brokerage_202001231040)' suggests a monetary value related to renewals. The visual filters include 'Renewal Budget,' indicating a possible comparison or relation to a budgeted amount for renewals. Among the canonical KPIs, 'Renewal Rate' (37a6e85b-2184-4942-ba5d-c15421567b15) is the closest in business context as it relates to renewals. However, 'Achieved_Renewal' is aggregated as 'SUM' and likely represents a total amount, not a rate or percentage. Thus, it doesn't match the definition of 'Renewal Rate,' which is a percentage. Other canonical KPIs like 'Net Written Premium' (715cea8b-3697-474f-9287-6498d9a4389b) or 'Premium Growth Rate' (d7a65ad2-b1e7-44fb-96f2-c7b0943e52e8) are related to premium amounts or growth, which could be tangentially related but don't directly match the specific 'Achieved_Renewal' metric. The presence of 'Renewal Budget' in visual filters suggests a comparison to a planned or budgeted renewal amount, but none of the canonical KPIs directly represent 'Achieved Renewal Amount.' Therefore, due to the lack of a direct match in both business meaning and mathematical intent, the matched_kpi_id is set to null with a confidence_score below 0.80.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "0b7efa07-84be-464b-bf52-a5814e923553",
+                    "report_kpi_name": "Invoice_Renewal",
+                    "report_kpi_definition": "SUM([Amount (invoice!202001231041) (Table - invoice_202001231041)]) - 4322211",
+                    "report_kpi_lineage": [
+                        "Amount (invoice!202001231041) (Table - invoice_202001231041)"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Renewal",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.4,
+                    "confidence_score": 0.6,
+                    "similarity_rationale": "The report KPI 'Invoice_Renewal' with aggregation 'SUM' and lineage tied to 'Amount (invoice!202001231041)' suggests a financial metric related to renewals. The presence of 'Renewal Budget' in visual filters indicates a connection to budgeted amounts for renewals. However, none of the canonical KPIs directly match 'Invoice_Renewal' in terms of business meaning and calculation logic. 'Renewal Rate' (37a6e85b-2184-4942-ba5d-c15421567b15) is the closest in context, but it represents a percentage, not a sum of invoice amounts. The aggregation (SUM) and the specific lineage (invoice amount) do not align with 'Renewal Rate'. Other canonical KPIs like 'Net Written Premium' (715cea8b-3697-474f-9287-6498d9a4389b) relate to premium amounts but do not directly correspond to 'Invoice_Renewal'. Given the mismatch in business logic and calculation, the confidence score is below 0.80, and matched_kpi_id is set to null.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "fd092e4a-6134-4dfd-a4e8-aa5a280262fe",
+                    "report_kpi_name": "SUM of NN+EN+EE Indi bdgt -20012020 .Renewal Budget",
+                    "report_kpi_definition": "SUM of NN+EN+EE Indi bdgt -20012020 .Renewal Budget [Text / value]",
+                    "report_kpi_lineage": [
+                        "NN+EN+EE Indi bdgt -20012020 .Renewal Budget"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Renewal",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.4,
+                    "confidence_score": 0.6,
+                    "similarity_rationale": "The report KPI 'SUM of NN+EN+EE Indi bdgt -20012020 .Renewal Budget' is related to a 'Renewal Budget' with an aggregation of SUM. The canonical KPI candidates provided do not directly match this metric. 'Renewal Rate' (37a6e85b-2184-4942-ba5d-c15421567b15) is the closest in terms of business context (renewal), but it represents a percentage, not a budget sum. The aggregation and business meaning do not align with any of the provided canonical KPIs. The term 'Renewal Budget' is semantically different from 'Renewal Premium' or 'Renewal Rate'; it refers to planned spend rather than actual premium or rate of renewal. According to the guidelines, 'renewal_budget / Renewal Budget \u2260 Renewal Premium,' and thus, it cannot be matched to 'Renewal Rate.' The other canonical KPIs are unrelated to the concept of a budget or renewal budget. Therefore, the report KPI does not match any of the canonical KPIs provided, leading to a matched_kpi_id of null and a confidence_score below 0.80.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "74396ffe-4c70-40ed-a88b-a34f18774484",
+                    "report_kpi_name": "SUM of Renewal Budget by Measure Names",
+                    "report_kpi_definition": "SUM of Renewal Budget by Measure Names [Text / value]",
+                    "report_kpi_lineage": [
+                        "NN+EN+EE Indi bdgt -20012020 .Renewal Budget"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Renewal",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.4499872561342858,
+                    "confidence_score": 0.4499872561342858,
+                    "similarity_rationale": "Embedding best match 'Renewal Rate'",
+                    "confidence_rationale": "Phase 3 LLM failed; embedding fallback",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "ea147c5a-1b2f-462d-9802-5deeacb3db0f",
+                    "report_kpi_name": "COUNT of invoice_202001231041.invoice_number",
+                    "report_kpi_definition": "COUNT of invoice_202001231041.invoice_number [Bar]",
+                    "report_kpi_lineage": [
+                        "invoice_202001231041.invoice_number"
+                    ],
+                    "report_kpi_aggregation": "COUNT",
+                    "worksheet_name": "No of invoice by Accnt Exec",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The Report KPI Context is about counting invoices by Account Executives. None of the Canonical Candidates match this description or business context. The closest in terms of aggregation (count) is 'Outbound Call Attempts', but it's semantically different. Following the guidelines, especially guideline 7, invoice counts are not equivalent to call attempts or other provided canonical KPIs. Therefore, no match is made.",
+                    "confidence_rationale": "Phase 3 LLM fallback",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "761afc52-9177-40c2-91df-a8e27ffc5f12",
+                    "report_kpi_name": "COUNT of invoice_number by Account Executive (invoice!202001231041)",
+                    "report_kpi_definition": "COUNT of invoice_number by Account Executive (invoice!202001231041) [Bar]",
+                    "report_kpi_lineage": [
+                        "invoice_202001231041.invoice_number"
+                    ],
+                    "report_kpi_aggregation": "COUNT",
+                    "worksheet_name": "No of invoice by Accnt Exec",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'COUNT of invoice_number by Account Executive' is about counting invoices, which is related to sales or financial transactions. The canonical KPIs provided are related to various business metrics such as mail counts, agent productivity, marketing efficiency, call attempts, and impression share. None of the canonical KPIs directly relate to counting invoices or financial transactions by account executives. The aggregation is COUNT, which matches with some canonical KPIs like 'Outbound Call Attempts' or 'No of Mails' in terms of being a count, but the business context is different. 'Outbound Call Attempts' and 'No of Mails' are related to sales or marketing efforts, not directly to invoices. The semantic meaning of 'Invoice counts' is distinct from 'Outbound Call Attempts' or 'No of Mails' as per the HARD RULE \u2014 Semantic false friends. Therefore, there is no exact match. The confidence score is set to 0.0, indicating no match found.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "f626f716-18d7-4c64-ae39-aa182471a122",
+                    "report_kpi_name": "COUNT of invoice_number by Invoice Number",
+                    "report_kpi_definition": "COUNT of invoice_number by Invoice Number [Bar]",
+                    "report_kpi_lineage": [
+                        "invoice_202001231041.invoice_number"
+                    ],
+                    "report_kpi_aggregation": "COUNT",
+                    "worksheet_name": "No of invoice by Accnt Exec",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'COUNT of invoice_number' is related to counting invoices, likely for a specific account executive as indicated by the 'No of invoice by Accnt Exec' worksheet context. The canonical candidates provided do not directly relate to invoice counts. The closest potential match could be 'Outbound Call Attempts' (6b269312-b4b9-421e-84b5-018cc0181c11), but it specifically refers to 'Number of outbound calls made to prospects,' which is semantically different from counting invoices. Invoice counts are not explicitly mentioned in any of the canonical KPI definitions. According to the guidelines, 'Invoice counts \u2260 Audits / Calls / Mail' (Semantic false friends rule), and we should not force a match to an unrelated canonical KPI. Therefore, the report KPI does not match any of the provided canonical KPIs, and the matched_kpi_id is set to null with a confidence_score below 0.80, adhering to the guideline to not pick the 'closest cousin' when there's no genuine match.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "586d46d7-7ab2-4e99-9bc5-b2cf9890d68e",
+                    "report_kpi_name": "SUM of gcrm_opportunity_202001231041.revenue_amount",
+                    "report_kpi_definition": "SUM of gcrm_opportunity_202001231041.revenue_amount [Bar]",
+                    "report_kpi_lineage": [
+                        "gcrm_opportunity_202001231041.revenue_amount"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Open Oppty-Top 4",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI is 'SUM of gcrm_opportunity_202001231041.revenue_amount', indicating a sum aggregation of revenue amount from CRM opportunity data. The canonical candidates provided do not directly match this definition. 'Total Marketing Spend' (kpi_id: 8a0f5ff7-06ae-4322-b137-1c54249b7fcb) is the closest in terms of being a sum of a financial metric, but the definition specifies 'Total marketing expenditure', which is not necessarily equivalent to 'revenue_amount' from CRM opportunity data. According to the matching guidelines, 'Opportunity / pipeline revenue_amount \u2260 Net Sales or Marketing Spend' (Semantic false friends rule), so we cannot match it to 'Total Marketing Spend'. The aggregation is SUM, which is compatible with financial metrics, but none of the canonical KPIs directly relate to 'revenue_amount' from CRM opportunities. Therefore, due to the lack of a direct match in terms of business meaning and definition, the matched_kpi_id is set to null, and the confidence_score is below 0.80.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "d1cf533a-b8c2-4e70-a1e3-500f1ca87516",
+                    "report_kpi_name": "SUM of revenue_amount by Revenue Amount",
+                    "report_kpi_definition": "SUM of revenue_amount by Revenue Amount [Bar]",
+                    "report_kpi_lineage": [
+                        "gcrm_opportunity_202001231041.revenue_amount"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Open Oppty-Top 4",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'SUM of revenue_amount' is derived from 'gcrm_opportunity_202001231041.revenue_amount', indicating it is related to CRM opportunity revenue. The canonical KPI candidates provided do not directly match this business logic. The closest related concept could be 'Total Marketing Spend' (8a0f5ff7-06ae-4322-b137-1c54249b7fcb), but 'revenue_amount' from a CRM opportunity table does not semantically match 'Total Marketing Spend' as per the given definitions and guidelines. Moreover, 'Opportunity / pipeline revenue_amount \u2260 Net Sales or Marketing Spend' as per the semantic false friends rule. Therefore, none of the provided canonical KPIs match the given report KPI. The aggregation is SUM, which is compatible with money/budget totals, but none of the canonical KPIs directly relate to 'revenue_amount' from CRM opportunities. Hence, the matched_kpi_id is null, and the confidence_score is below 0.80.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "9eef2223-aabe-4a2f-870f-2108a80ee6bb",
+                    "report_kpi_name": "SUM of revenue_amount by Opportunity Name",
+                    "report_kpi_definition": "SUM of revenue_amount by Opportunity Name [Bar]",
+                    "report_kpi_lineage": [
+                        "gcrm_opportunity_202001231041.revenue_amount"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Open Oppty-Top 4",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'SUM of revenue_amount' is derived from 'gcrm_opportunity_202001231041.revenue_amount', indicating it is related to CRM opportunity revenue. The canonical KPI candidates provided do not directly match this business logic. The closest related concept could be 'Total Marketing Spend' (8a0f5ff7-06ae-4322-b137-1c54249b7fcb), but 'revenue_amount' from a CRM opportunity table does not semantically match 'Total Marketing Spend' as per the given definitions and guidelines. Moreover, 'Opportunity / pipeline revenue_amount \u2260 Net Sales or Marketing Spend' as per the semantic false friends rule. Therefore, none of the provided canonical KPIs match the given report KPI. The aggregation is SUM, which is compatible with money/budget totals, but none of the canonical KPIs directly relate to 'revenue_amount' from CRM opportunities. Hence, the matched_kpi_id is null, and the confidence_score is below 0.80.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "12957f2b-0712-4c96-a347-bbd324f8d7d3",
+                    "report_kpi_name": "Achieved_Cross_Sell",
+                    "report_kpi_definition": "SUM([Amount (Table - brokerage_202001231040)]) - 21547181",
+                    "report_kpi_lineage": [
+                        "Amount (Table - brokerage_202001231040)"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Cross Sell",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'Achieved_Cross_Sell' is aggregated as SUM and has a lineage tied to 'Amount (Table - brokerage_202001231040)'. The visual filters include 'Amount (invoice!202001231041) (Table - invoice_202001231041)', 'Achieved_Cross_Sell', 'Invoice_cross_sell', and 'Cross sell bugdet (Table - NN+EN+EE Indi bdgt -20012020 )'. The canonical candidates provided do not directly match the business logic or calculation of 'Achieved_Cross_Sell'. The closest related concept could be considered as 'Share of Spend' or 'Outbound Call Attempts', but neither directly relates to 'Achieved_Cross_Sell' in terms of business meaning or calculation logic. 'Cross sell bugdet' in the visual filters suggests a relation to budget or cross-selling, but none of the canonical KPIs directly correspond to 'Achieved Cross Sell' in terms of aggregation (SUM), field lineage (Amount), or business context (cross-selling). Therefore, due to the lack of a direct match in terms of business logic, calculation, and aggregation, the matched_kpi_id is set to null, and the confidence_score is below 0.80.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "96438997-b155-428c-b399-e148378d9ae2",
+                    "report_kpi_name": "Invoice_cross_sell",
+                    "report_kpi_definition": "SUM([Amount (invoice!202001231041) (Table - invoice_202001231041)]) - 9412706",
+                    "report_kpi_lineage": [
+                        "Amount (invoice!202001231041) (Table - invoice_202001231041)"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Cross Sell",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'Invoice_cross_sell' with aggregation 'SUM' and lineage from 'Amount (invoice!202001231041)' suggests a financial metric related to cross-selling through invoices. The canonical candidates provided do not directly match this description. 'Outbound Call Attempts' (6b269312-b4b9-421e-84b5-018cc0181c11) and 'Total Marketing Spend' (8a0f5ff7-06ae-4322-b137-1c54249b7fcb) are the closest in terms of potentially being related to sales or marketing efforts, but they do not directly relate to 'Invoice_cross_sell'. The presence of 'Cross sell bugdet' in visual_filters indicates a budget or planned spend, which is semantically different from actual invoice amounts. According to the HARD RULE on semantic false friends, 'bugdet' or 'bdgt' should not be confused with metrics like 'LOB Cross-sell COUNT'. The worksheet_context 'Cross Sell' supports the interpretation that the KPI is related to cross-selling, but none of the canonical KPIs directly match the business logic of summing invoice amounts related to cross-selling. Therefore, the confidence score is below 0.80, and matched_kpi_id is set to null.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "a1fc42cc-3687-46cc-9cdf-6709d9fffc0f",
+                    "report_kpi_name": "SUM of NN+EN+EE Indi bdgt -20012020 .Cross sell bugdet",
+                    "report_kpi_definition": "SUM of NN+EN+EE Indi bdgt -20012020 .Cross sell bugdet [Bar]",
+                    "report_kpi_lineage": [
+                        "NN+EN+EE Indi bdgt -20012020 .Cross sell bugdet"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Cross Sell",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'SUM of NN+EN+EE Indi bdgt -20012020 .Cross sell bugdet' is related to a 'Cross sell bugdet' or budget, which is aggregated as a SUM. The canonical candidates provided do not directly match this KPI. 'Total Marketing Spend' (8a0f5ff7-06ae-4322-b137-1c54249b7fcb) is the closest in terms of being a budget/spend metric, but it does not specifically relate to 'Cross sell bugdet'. The term 'bugdet' or 'bdgt' is identified as a semantic false friend with metrics like 'Premium Opportunity', 'Marketing Spend', 'Net Sales', or 'LOB Cross-sell COUNT' as per the guidelines. The aggregation is SUM, which is compatible with budget totals, but none of the canonical KPIs directly correspond to a 'Cross sell budget'. Therefore, based on the guidelines, especially the HARD RULE on semantic false friends and the preference for not inventing a mapping when there's an ontology gap, the matched_kpi_id is set to null with a confidence_score of 0.0.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "91e59d34-149d-4fc1-892e-28aa3e76bf42",
+                    "report_kpi_name": "SUM of Cross sell bugdet by Measure Names",
+                    "report_kpi_definition": "SUM of Cross sell bugdet by Measure Names [Bar]",
+                    "report_kpi_lineage": [
+                        "NN+EN+EE Indi bdgt -20012020 .Cross sell bugdet"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Cross Sell",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'SUM of Cross sell bugdet' is related to a budget for cross-selling activities. Upon examining the canonical candidates, none directly match the business logic and semantic meaning of 'Cross sell bugdet'. The closest potential matches could be 'Total Marketing Spend' (kpi_id: '8a0f5ff7-06ae-4322-b137-1c54249b7fcb') due to its relation to expenditure, but it does not specifically relate to cross-selling budget. The HARD RULE regarding semantic false friends indicates that 'bugdet / bdgt' should not be mapped to 'Marketing Spend' or other unrelated concepts like 'Net Sales' or 'LOB Cross-sell COUNT'. The aggregation 'SUM' is compatible with budget or expenditure metrics, but the specific context of 'Cross sell bugdet' is not directly represented among the canonical KPIs. Therefore, due to the lack of a direct match and adherence to the guidelines, the matched_kpi_id is set to null with a confidence_score of 0.0, indicating no match.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "a4f07475-1b76-426d-a0bb-f1c5ebeb4d47",
+                    "report_kpi_name": "SUM of gcrm_opportunity_202001231041.revenue_amount",
+                    "report_kpi_definition": "SUM of gcrm_opportunity_202001231041.revenue_amount [Pie]",
+                    "report_kpi_lineage": [
+                        "gcrm_opportunity_202001231041.revenue_amount"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Oppty by Revenue - Top 4",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI is 'SUM of gcrm_opportunity_202001231041.revenue_amount', indicating a sum aggregation of revenue amount from CRM opportunity data. The canonical candidates provided do not directly match this definition. 'Total Marketing Spend' (kpi_id: 8a0f5ff7-06ae-4322-b137-1c54249b7fcb) is the closest in terms of being a sum of a financial metric, but the definition specifies 'Total marketing expenditure', which is not necessarily equivalent to 'revenue_amount' from CRM opportunity data. According to the matching guidelines, 'Opportunity / pipeline revenue_amount \u2260 Net Sales or Marketing Spend' (Semantic false friends rule), so we cannot match it to 'Total Marketing Spend'. The aggregation is SUM, which is compatible with financial metrics, but none of the canonical KPIs directly relate to 'revenue_amount' from CRM opportunities. Therefore, due to the lack of a direct match in terms of business meaning and definition, the matched_kpi_id is set to null, and the confidence_score is below 0.80.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "28a7a50c-dd48-4a89-9dd8-d4d2b2c13740",
+                    "report_kpi_name": "SUM of revenue_amount by Opportunity Name",
+                    "report_kpi_definition": "SUM of revenue_amount by Opportunity Name [Pie]",
+                    "report_kpi_lineage": [
+                        "gcrm_opportunity_202001231041.revenue_amount"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Oppty by Revenue - Top 4",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'SUM of revenue_amount' is derived from 'gcrm_opportunity_202001231041.revenue_amount', indicating it is related to CRM opportunity revenue. The canonical KPI candidates provided do not directly match this business logic. The closest related concept could be 'Total Marketing Spend' (8a0f5ff7-06ae-4322-b137-1c54249b7fcb), but 'revenue_amount' from a CRM opportunity table does not semantically match 'Total Marketing Spend' as per the given definitions and guidelines. Moreover, 'Opportunity / pipeline revenue_amount \u2260 Net Sales or Marketing Spend' as per the semantic false friends rule. Therefore, none of the provided canonical KPIs match the given report KPI. The aggregation is SUM, which is compatible with money/budget totals, but none of the canonical KPIs directly relate to 'revenue_amount' from CRM opportunities. Hence, the matched_kpi_id is null, and the confidence_score is below 0.80.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "82608691-3fb4-43b9-adcc-8116c1e9d798",
+                    "report_kpi_name": "SUM of revenue_amount by Revenue Amount",
+                    "report_kpi_definition": "SUM of revenue_amount by Revenue Amount [Pie]",
+                    "report_kpi_lineage": [
+                        "gcrm_opportunity_202001231041.revenue_amount"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Oppty by Revenue - Top 4",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'SUM of revenue_amount' is derived from 'gcrm_opportunity_202001231041.revenue_amount', indicating it is related to CRM opportunity revenue. The canonical KPI candidates provided do not directly match this business logic. The closest related concept could be 'Total Marketing Spend' (8a0f5ff7-06ae-4322-b137-1c54249b7fcb), but 'revenue_amount' from a CRM opportunity table does not semantically match 'Total Marketing Spend' as per the given definitions and guidelines. Moreover, 'Opportunity / pipeline revenue_amount \u2260 Net Sales or Marketing Spend' as per the semantic false friends rule. Therefore, none of the provided canonical KPIs match the given report KPI. The aggregation is SUM, which is compatible with money/budget totals, but none of the canonical KPIs directly relate to 'revenue_amount' from CRM opportunities. Hence, the matched_kpi_id is null, and the confidence_score is below 0.80.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "b0d01f10-3ff5-46ef-b0d1-ca2b187b6381",
+                    "report_kpi_name": "COUNT of gcrm_opportunity_202001231041.stage",
+                    "report_kpi_definition": "COUNT of gcrm_opportunity_202001231041.stage [Bar]",
+                    "report_kpi_lineage": [
+                        "gcrm_opportunity_202001231041.stage"
+                    ],
+                    "report_kpi_aggregation": "COUNT",
+                    "worksheet_name": "Stage by revenue",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'COUNT of gcrm_opportunity_202001231041.stage' is related to counting the stages of CRM opportunities. The canonical candidates provided do not directly relate to this metric. The closest related concept might be 'Outbound Call Attempts' (6b269312-b4b9-421e-84b5-018cc0181c11), but it is still not a match because it measures the number of outbound calls made to prospects, not the count of opportunity stages. The aggregation 'COUNT' and the field lineage 'gcrm_opportunity_202001231041.stage' indicate a count of CRM opportunity stages, which doesn't directly align with any of the provided canonical KPIs. The business meaning is specific to CRM opportunity stage distribution, which is not represented among the canonical candidates. Therefore, the matched_kpi_id is null, and the confidence_score is below 0.80 as per the guidelines.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "92c3883c-499b-439c-85c9-f100c9f05ef9",
+                    "report_kpi_name": "COUNT of meeting!list!202001231041_8DEA75082D9B4E319F02AD26040B6DD1",
+                    "report_kpi_definition": "COUNT of meeting!list!202001231041_8DEA75082D9B4E319F02AD26040B6DD1 [Bar]",
+                    "report_kpi_lineage": [
+                        "meeting!list!202001231041_8DEA75082D9B4E319F02AD26040B6DD1"
+                    ],
+                    "report_kpi_aggregation": "COUNT",
+                    "worksheet_name": "No of meeting by Accnt Exec",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'COUNT of meeting!list!202001231041_8DEA75082D9B4E319F02AD26040B6DD1' is counting meetings, as indicated by its name and lineage. The canonical candidates provided do not include a KPI that explicitly measures 'meetings'. The closest related KPIs are 'Outbound Call Attempts' and 'No of Mails', but according to the HARD RULE \u2014 Semantic false friends, 'Meeting counts \u2260 Scheduled Calls, Outbound Calls, or Mail KPIs (unless the canonical name/definition explicitly includes meetings)'. Since none of the canonical KPIs explicitly include meetings, we cannot match the report KPI to any of the provided canonical KPIs. Therefore, the matched_kpi_id is null, and the confidence_score is 0.0, indicating no match.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "e59d350a-5876-4f59-a9f5-39e6e2b49faf",
+                    "report_kpi_name": "COUNTD of meeting_list_202001231041.meeting_date",
+                    "report_kpi_definition": "COUNTD of meeting_list_202001231041.meeting_date [Bar]",
+                    "report_kpi_lineage": [
+                        "meeting_list_202001231041.meeting_date"
+                    ],
+                    "report_kpi_aggregation": "COUNTD",
+                    "worksheet_name": "No of meeting by Accnt Exec",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'COUNTD of meeting_list_202001231041.meeting_date' represents a count distinct of meeting dates, likely indicating the number of unique meetings. The canonical candidates provided do not directly match this definition. 'Outbound Call Attempts' (6b269312-b4b9-421e-84b5-018cc0181c11) is the closest in terms of being a count, but it specifically refers to 'outbound calls made to prospects,' not meetings. According to the HARD RULE \u2014 Semantic false friends, 'Meeting counts \u2260 Scheduled Calls, Outbound Calls, or Mail KPIs' unless explicitly mentioned. None of the canonical KPIs explicitly include 'meetings.' Therefore, the report KPI does not match any of the provided canonical KPIs. The aggregation is COUNTD, which is compatible with count-related KPIs, but the business meaning is specific to meetings, which is not represented in the canonical candidates. Hence, the matched_kpi_id is null, and the confidence_score is below 0.80.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "66e42564-3ea7-4cde-a671-6f0d1a640d2d",
+                    "report_kpi_name": "COUNT of meeting!list!202001231041_8DEA75082D9B4E319F02AD26040B6DD1 by Account Executive (meeting!list!202001231041)",
+                    "report_kpi_definition": "COUNT of meeting!list!202001231041_8DEA75082D9B4E319F02AD26040B6DD1 by Account Executive (meeting!list!202001231041) [Bar]",
+                    "report_kpi_lineage": [
+                        "meeting!list!202001231041_8DEA75082D9B4E319F02AD26040B6DD1"
+                    ],
+                    "report_kpi_aggregation": "COUNT",
+                    "worksheet_name": "No of meeting by Accnt Exec",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI context describes a 'COUNT of meeting' by 'Account Executive', indicating it's about counting meetings. The canonical candidates provided do not explicitly include a KPI that is defined as 'meeting count' or similar. The closest related KPIs like 'Outbound Call Attempts' (6b269312-b4b9-421e-84b5-018cc0181c11) or 'No of Mails' (694d4776-5d37-417d-b6e9-1992d0b99409) are not a match because they represent different business concepts. According to the matching guidelines, specifically guideline 7, 'Meeting counts \u2260 Scheduled Calls, Outbound Calls, or Mail KPIs (unless the canonical name/definition explicitly includes meetings)'. Since none of the canonical KPIs explicitly include meetings, and the aggregation (COUNT) and business context (meetings by Account Executive) do not match any of the provided canonical KPIs, the report KPI does not match any of the given canonical candidates. Therefore, the matched_kpi_id is null, and the confidence_score is below 0.80, adhering to guideline 4 and 8.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "474f7435-5222-43c9-80fd-8dd3de9477dd",
+                    "report_kpi_name": "COUNT of meeting!list!202001231041_8DEA75082D9B4E319F02AD26040B6DD1 by __tableau_internal_object_id__",
+                    "report_kpi_definition": "COUNT of meeting!list!202001231041_8DEA75082D9B4E319F02AD26040B6DD1 by __tableau_internal_object_id__ [Bar]",
+                    "report_kpi_lineage": [
+                        "meeting!list!202001231041_8DEA75082D9B4E319F02AD26040B6DD1"
+                    ],
+                    "report_kpi_aggregation": "COUNT",
+                    "worksheet_name": "No of meeting by Accnt Exec",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'COUNT of meeting!list!202001231041_8DEA75082D9B4E319F02AD26040B6DD1' is counting meetings, as indicated by its name and lineage. The canonical candidates provided do not include a KPI that explicitly measures 'meetings'. The closest related KPIs are 'Outbound Call Attempts' and 'No of Mails', but according to the HARD RULE \u2014 Semantic false friends, 'Meeting counts \u2260 Scheduled Calls, Outbound Calls, or Mail KPIs (unless the canonical name/definition explicitly includes meetings)'. Since none of the canonical KPIs explicitly include meetings, we cannot match the report KPI to any of the provided canonical KPIs. Therefore, the matched_kpi_id is null, and the confidence_score is 0.0, indicating no match.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "5fbaaa37-8812-4213-a94b-de25d6ffed54",
+                    "report_kpi_name": "COUNT of meeting!list!202001231041_8DEA75082D9B4E319F02AD26040B6DD1 by meeting_list_202001231041",
+                    "report_kpi_definition": "COUNT of meeting!list!202001231041_8DEA75082D9B4E319F02AD26040B6DD1 by meeting_list_202001231041 [Bar]",
+                    "report_kpi_lineage": [
+                        "meeting!list!202001231041_8DEA75082D9B4E319F02AD26040B6DD1"
+                    ],
+                    "report_kpi_aggregation": "COUNT",
+                    "worksheet_name": "No of meeting by Accnt Exec",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'COUNT of meeting!list!202001231041_8DEA75082D9B4E319F02AD26040B6DD1' is counting meetings, as indicated by its name and lineage. The canonical candidates provided do not include a KPI that explicitly measures 'meetings'. The closest related KPIs are 'Outbound Call Attempts' and 'No of Mails', but according to the HARD RULE \u2014 Semantic false friends, 'Meeting counts \u2260 Scheduled Calls, Outbound Calls, or Mail KPIs (unless the canonical name/definition explicitly includes meetings)'. Since none of the canonical KPIs explicitly include meetings, we cannot match the report KPI to any of the provided canonical KPIs. Therefore, the matched_kpi_id is null, and the confidence_score is 0.0, indicating no match.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "ad7d06ea-1bd3-4507-b16c-56eb297bf3a7",
+                    "report_kpi_name": "COUNTD of meeting_date by Account Executive (meeting!list!202001231041)",
+                    "report_kpi_definition": "COUNTD of meeting_date by Account Executive (meeting!list!202001231041) [Bar]",
+                    "report_kpi_lineage": [
+                        "meeting_list_202001231041.meeting_date"
+                    ],
+                    "report_kpi_aggregation": "COUNTD",
+                    "worksheet_name": "No of meeting by Accnt Exec",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'COUNTD of meeting_date by Account Executive' is counting distinct meeting dates for each Account Executive. The canonical candidates provided do not directly match this business logic. 'Outbound Call Attempts' (6b269312-b4b9-421e-84b5-018cc0181c11) might seem related if considering 'meeting' as a form of 'call attempt,' but the canonical definition specifically mentions 'outbound calls made to prospects,' which does not explicitly include meetings. The HARD RULE regarding semantic false friends indicates that 'Meeting counts \u2260 Scheduled Calls, Outbound Calls, or Mail KPIs' unless explicitly mentioned in the canonical name/definition. None of the provided canonical KPIs explicitly include 'meetings.' Therefore, the most appropriate decision is to set matched_kpi_id to null and confidence_score to 0.0, as there is no genuine match to the business logic represented by the report KPI.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "243e90b9-b7d1-4b6d-9604-da300e57d8b3",
+                    "report_kpi_name": "COUNTD of meeting_date by __tableau_internal_object_id__",
+                    "report_kpi_definition": "COUNTD of meeting_date by __tableau_internal_object_id__ [Bar]",
+                    "report_kpi_lineage": [
+                        "meeting_list_202001231041.meeting_date"
+                    ],
+                    "report_kpi_aggregation": "COUNTD",
+                    "worksheet_name": "No of meeting by Accnt Exec",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'COUNTD of meeting_date' is counting distinct meeting dates, likely representing the number of unique meetings. The canonical candidates provided do not explicitly include a KPI that measures 'meetings' or 'meeting counts.' The closest related KPI could be 'Outbound Call Attempts' (6b269312-b4b9-421e-84b5-018cc0181c11), but according to the semantic false friends rule (HARD RULE 7), 'Meeting counts \u2260 Scheduled Calls, Outbound Calls, or Mail KPIs' unless the canonical name/definition explicitly includes meetings, which it does not. Therefore, none of the provided canonical KPIs match the business logic and meaning of the report KPI. As per the guidelines, when no candidate genuinely matches, we set matched_kpi_id to null and confidence_score below 0.80. The aggregation is COUNTD, which is compatible with counting distinct entities (meetings in this case), but none of the canonical KPIs directly relate to meeting counts. Hence, the confidence_score is 0.0, indicating no match.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "1a36ef50-d9db-461e-aa28-38c88da649d0",
+                    "report_kpi_name": "COUNTD of meeting_date by meeting_list_202001231041",
+                    "report_kpi_definition": "COUNTD of meeting_date by meeting_list_202001231041 [Bar]",
+                    "report_kpi_lineage": [
+                        "meeting_list_202001231041.meeting_date"
+                    ],
+                    "report_kpi_aggregation": "COUNTD",
+                    "worksheet_name": "No of meeting by Accnt Exec",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'COUNTD of meeting_date' is counting distinct meeting dates, likely representing the number of unique meetings. The canonical candidates provided do not explicitly include a KPI that measures 'meetings' or 'meeting counts.' The closest related KPI could be 'Outbound Call Attempts' (6b269312-b4b9-421e-84b5-018cc0181c11), but according to the semantic false friends rule (HARD RULE 7), 'Meeting counts \u2260 Scheduled Calls, Outbound Calls, or Mail KPIs' unless the canonical name/definition explicitly includes meetings, which it does not. Therefore, none of the provided canonical KPIs match the business logic and meaning of the report KPI. As per the guidelines, when no candidate genuinely matches, we set matched_kpi_id to null and confidence_score below 0.80. The aggregation is COUNTD, which is compatible with counting distinct entities (meetings in this case), but none of the canonical KPIs directly relate to meeting counts. Hence, the confidence_score is 0.0, indicating no match.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "3d33c4a6-ce40-4703-bece-48fa01f8555e",
+                    "report_kpi_name": "COUNT of gcrm_opportunity_202001231041.opportunity_name",
+                    "report_kpi_definition": "COUNT of gcrm_opportunity_202001231041.opportunity_name [Pie]",
+                    "report_kpi_lineage": [
+                        "gcrm_opportunity_202001231041.opportunity_name"
+                    ],
+                    "report_kpi_aggregation": "COUNT",
+                    "worksheet_name": "Oppty by product",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI is a COUNT of 'gcrm_opportunity_202001231041.opportunity_name' with a lineage directly tied to 'gcrm_opportunity_202001231041.opportunity_name'. The aggregation is COUNT, and it's visualized in a Pie chart with a breakdown dimension and filters related to 'Opportunity Name' and 'Product Group'. The canonical candidates provided do not match the business logic or the mathematical intent of the report KPI. The closest potential matches could be considered based on the COUNT aggregation, but none of the canonical KPIs directly relate to counting opportunities or CRM data. The field names with underscores ('gcrm_opportunity', 'opportunity_name') carry full semantic meaning indicating CRM pipeline/sales data, which should not be mapped to booked insurance policy or call-center KPIs as per the guidelines. Therefore, none of the provided canonical KPIs genuinely match the report KPI's business logic or definition. As per the guidelines, when no candidate genuinely matches, 'matched_kpi_id' should be set to null and 'confidence_score' below 0.80. Hence, the decision to not match with any canonical KPI.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "673e7e83-bd3b-4e1e-98af-7b5f87a761b6",
+                    "report_kpi_name": "COUNT of gcrm_opportunity_202001231041.product_group (gcrm!opportunity!202001231041)",
+                    "report_kpi_definition": "COUNT of gcrm_opportunity_202001231041.product_group (gcrm!opportunity!202001231041) [Pie]",
+                    "report_kpi_lineage": [
+                        "gcrm_opportunity_202001231041.product_group (gcrm!opportunity!202001231041)"
+                    ],
+                    "report_kpi_aggregation": "COUNT",
+                    "worksheet_name": "Oppty by product",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI context describes a 'COUNT of gcrm_opportunity_202001231041.product_group', indicating it is counting the product groups associated with opportunities in a CRM system. The aggregation is COUNT, and the field lineage is directly related to CRM opportunity data. The canonical candidates provided do not directly match this description. 'Line of Business (Product Type)' (8aefe0b9-a290-44f4-be24-26801e8b254a) is the closest in terms of business context as it involves distribution across product types, but it does not match the COUNT aggregation or the specific CRM opportunity context. The other canonical KPIs either have different aggregation methods or are unrelated to CRM opportunity data. According to the matching guidelines, we should not force a match to an unrelated canonical KPI and should return null when no genuine match is found. Therefore, the matched_kpi_id is null, and the confidence_score is below 0.80, adhering to the guidelines.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "8f687ec4-618c-4c58-976f-5278d22c0111",
+                    "report_kpi_name": "SUM of Calculation_1027383682329116673",
+                    "report_kpi_definition": "SUM of Calculation_1027383682329116673 [Pie]",
+                    "report_kpi_lineage": [
+                        "Calculation_1027383682329116673"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Oppty by product",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "Quality gate: opaque Tableau Calculation_* lacks business meaning",
+                    "confidence_rationale": "Quality gate: opaque Tableau Calculation_* lacks business meaning",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "7e610bfc-6ffb-4097-b52e-7bc2be66221e",
+                    "report_kpi_name": "COUNT of opportunity_name by zero",
+                    "report_kpi_definition": "COUNT of opportunity_name by zero [Pie]",
+                    "report_kpi_lineage": [
+                        "gcrm_opportunity_202001231041.opportunity_name"
+                    ],
+                    "report_kpi_aggregation": "COUNT",
+                    "worksheet_name": "Oppty by product",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'COUNT of opportunity_name' is related to counting opportunities in a CRM context, as indicated by the lineage 'gcrm_opportunity_202001231041.opportunity_name'. The aggregation is COUNT, and it's visualized in a Pie chart with a breakdown dimension and filters related to 'Opportunity Name' and 'Product Group'. None of the provided canonical KPIs directly match this description. 'Outbound Call Attempts' (6b269312-b4b9-421e-84b5-018cc0181c11) is the closest in terms of being a count, but it specifically refers to 'outbound calls made to prospects,' which doesn't align with the opportunity count. The canonical KPIs provided are either related to different business contexts (e.g., clicks, impressions, insurance product types, agent productivity) or don't directly relate to counting opportunities. Therefore, there's no exact match. According to the guidelines, we should not force a match to an unrelated canonical KPI, and ontology gaps are acceptable. Hence, the matched_kpi_id is null, and the confidence_score is below 0.80, specifically 0.0, indicating no match.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "7fad8c6a-3327-4024-b164-d09b801676c2",
+                    "report_kpi_name": "COUNT of product_group (gcrm!opportunity!202001231041) by zero",
+                    "report_kpi_definition": "COUNT of product_group (gcrm!opportunity!202001231041) by zero [Pie]",
+                    "report_kpi_lineage": [
+                        "gcrm_opportunity_202001231041.product_group (gcrm!opportunity!202001231041)"
+                    ],
+                    "report_kpi_aggregation": "COUNT",
+                    "worksheet_name": "Oppty by product",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'COUNT of product_group (gcrm!opportunity!202001231041)' is related to counting product groups within opportunities from a CRM system. The canonical candidates provided do not directly match this definition. The closest potential match could be 'Line of Business (Product Type)' (kpi_id: 8aefe0b9-a290-44f4-be24-26801e8b254a), but it refers to 'Distribution of policies across insurance product types,' which is not directly related to counting product groups in CRM opportunities. The aggregation is COUNT, which aligns with some canonical KPIs, but the business context (CRM opportunities vs. insurance policies or products) differs. Following the guidelines, we should not force a match to an unrelated canonical KPI. Therefore, the matched_kpi_id is null, and the confidence_score is below 0.80, indicating no genuine match.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "abbd29ed-6d02-4d31-ad6a-e2f5cdd3266c",
+                    "report_kpi_name": "SUM of Calculation_1027383682329116673 by zero",
+                    "report_kpi_definition": "SUM of Calculation_1027383682329116673 by zero [Pie]",
+                    "report_kpi_lineage": [
+                        "Calculation_1027383682329116673"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Oppty by product",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "Quality gate: opaque Tableau Calculation_* lacks business meaning",
+                    "confidence_rationale": "Quality gate: opaque Tableau Calculation_* lacks business meaning",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "281642c7-0851-4437-b1bb-9cf3f7274f1d",
+                    "report_kpi_name": "SUM of NN+EN+EE Indi bdgt -20012020 .Cross sell bugdet",
+                    "report_kpi_definition": "SUM of NN+EN+EE Indi bdgt -20012020 .Cross sell bugdet [Bar]",
+                    "report_kpi_lineage": [
+                        "NN+EN+EE Indi bdgt -20012020 .Cross sell bugdet"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Cross sell by employee",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'SUM of NN+EN+EE Indi bdgt -20012020 .Cross sell bugdet' is related to a 'Cross sell bugdet' or budget, which is aggregated as a SUM. The canonical candidates provided do not directly match this KPI. 'Total Marketing Spend' (8a0f5ff7-06ae-4322-b137-1c54249b7fcb) is the closest in terms of being a budget/spend metric, but it does not specifically relate to 'Cross sell bugdet'. The term 'bugdet' or 'bdgt' is identified as a semantic false friend with metrics like 'Premium Opportunity', 'Marketing Spend', 'Net Sales', or 'LOB Cross-sell COUNT' as per the guidelines. The aggregation is SUM, which is compatible with budget totals, but none of the canonical KPIs directly correspond to a 'Cross sell budget'. Therefore, based on the guidelines, especially the HARD RULE on semantic false friends and the preference for not inventing a mapping when there's an ontology gap, the matched_kpi_id is set to null with a confidence_score of 0.0.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "152af511-5e0b-4459-aae7-b92bfb4e1021",
+                    "report_kpi_name": "SUM of Cross sell bugdet by Employee Name",
+                    "report_kpi_definition": "SUM of Cross sell bugdet by Employee Name [Bar]",
+                    "report_kpi_lineage": [
+                        "NN+EN+EE Indi bdgt -20012020 .Cross sell bugdet"
+                    ],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": "Cross sell by employee",
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'SUM of Cross sell bugdet' is related to a budget for cross-selling activities. Upon examining the canonical candidates, none directly match the business logic and semantic meaning of 'Cross sell bugdet'. The closest potential matches could be 'Total Marketing Spend' (kpi_id: '8a0f5ff7-06ae-4322-b137-1c54249b7fcb') due to its relation to expenditure, but it does not specifically relate to cross-selling budget. The HARD RULE regarding semantic false friends indicates that 'bugdet / bdgt' should not be mapped to 'Marketing Spend' or other unrelated concepts like 'Net Sales' or 'LOB Cross-sell COUNT'. The aggregation 'SUM' is compatible with budget or expenditure metrics, but the specific context of 'Cross sell bugdet' is not directly represented among the canonical KPIs. Therefore, due to the lack of a direct match and adherence to the guidelines, the matched_kpi_id is set to null with a confidence_score of 0.0, indicating no match.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "a37b0957-e616-4da3-9774-0c491847c6cb",
+                    "report_kpi_name": "Cross sell bugdet by Employee Name",
+                    "report_kpi_definition": "Total cross-sell budget allocated to each employee. | Sum of cross-sell budget by employee | Worksheet 'Cross sell by employee'",
+                    "report_kpi_lineage": [],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": null,
+                    "canonical_kpi": null,
+                    "similarity_score": 0.4,
+                    "confidence_score": 0.6,
+                    "similarity_rationale": "The report KPI 'Cross sell bugdet' with aggregation 'SUM' and calculation logic 'Sum of cross-sell budget by employee' is analyzed against the provided canonical KPIs. The closest match in terms of business meaning could be 'Total Marketing Spend' (kpi_id: '8a0f5ff7-06ae-4322-b137-1c54249b7fcb') as it relates to expenditure. However, 'Cross sell bugdet' specifically refers to a budget related to cross-selling activities, which is not explicitly defined in the canonical KPI 'Total Marketing Spend'. The term 'bugdet' is considered a semantic false friend to 'Marketing Spend' as per the guidelines, suggesting it should not be directly mapped. Other canonical KPIs do not align closely with the given report KPI's business logic and aggregation. Therefore, due to the lack of a precise match in terms of both business meaning and calculation logic, and considering the semantic false friends rule, the matched_kpi_id is set to null. The confidence_score is below 0.80 as there's no genuine match.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "e2b9a948-8f03-442d-912f-83f7e6521a7a",
+                    "report_kpi_name": "Invoice Number by Account Executive",
+                    "report_kpi_definition": "Number of invoices processed by each account executive. | Count of invoices by account executive | Worksheet 'No of invoice by Accnt Exec'",
+                    "report_kpi_lineage": [],
+                    "report_kpi_aggregation": "COUNT",
+                    "worksheet_name": null,
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'Invoice Number' with aggregation 'COUNT' and calculation logic 'Count of invoices by account executive' does not match any of the provided canonical KPIs. The canonical KPIs provided relate to various business metrics such as mail counts, call attempts, agent productivity, and financial metrics like Net Written Premium. The given report KPI is about counting invoices, which is not directly related to any of the canonical KPIs listed. According to the matching guidelines, specifically the semantic false friends rule, 'Invoice counts \u2260 Audits / Calls / Mail,' which supports the decision not to match with 'No of Mails' (694d4776-5d37-417d-b6e9-1992d0b99409) or 'Outbound Call Attempts' (6b269312-b4b9-421e-84b5-018cc0181c11). The other canonical KPIs are also unrelated to invoice counts. Therefore, the matched_kpi_id is null, and the confidence_score is below 0.80, adhering to the guideline to not force a match to an unrelated canonical KPI.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "bf921f29-ff06-480d-b76a-5d9da703549b",
+                    "report_kpi_name": "Number of Meetings by Account Executive",
+                    "report_kpi_definition": "Number of meetings conducted by each account executive. | Count of meetings by account executive | Worksheet 'No of meeting by Accnt Exec'",
+                    "report_kpi_lineage": [],
+                    "report_kpi_aggregation": "COUNT",
+                    "worksheet_name": null,
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'Number of Meetings' is compared against the canonical candidates. The aggregation 'COUNT' matches with some candidates, but upon closer inspection, none of the canonical KPIs explicitly relate to 'meetings'. The closest candidates like 'Outbound Call Attempts' (6b269312-b4b9-421e-84b5-018cc0181c11) are not a match due to the semantic difference between 'calls' and 'meetings'. The guideline 'Meeting counts \u2260 Scheduled Calls, Outbound Calls, or Mail KPIs (unless the canonical name/definition explicitly includes meetings)' is applied, leading to a rejection of all candidates. As no candidate genuinely matches the business logic, 'matched_kpi_id' is set to null and 'confidence_score' is set below 0.80, adhering to the governance guidelines.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "97aed9dc-8e0d-4a18-b71a-de3c20d85a4f",
+                    "report_kpi_name": "Revenue Amount by Opportunity Name",
+                    "report_kpi_definition": "Total revenue amount for each of the top opportunities. | Sum of revenue amount by opportunity name | Worksheets 'Open Oppty-Top 4' and 'Oppty by Revenue - Top 4'",
+                    "report_kpi_lineage": [],
+                    "report_kpi_aggregation": "SUM",
+                    "worksheet_name": null,
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'Revenue Amount' with aggregation 'SUM' and calculation logic 'Sum of revenue amount by opportunity name' does not match any of the provided canonical KPIs. The closest candidates were examined: 'Total Marketing Spend' (kpi_id: '8a0f5ff7-06ae-4322-b137-1c54249b7fcb') is a potential semantic match due to both being related to financial metrics, but the definition 'Total marketing expenditure' does not align with 'revenue amount by opportunity name', which suggests a sales pipeline metric rather than marketing spend. Other canonical KPIs like 'Share of Spend' and 'Share of Clicks' are percentage-based and unrelated to the sum of revenue amounts. 'Outbound Call Attempts', 'Contact Rate' are unrelated to revenue or financial metrics. According to the guidelines, 'Opportunity / pipeline revenue_amount \u2260 Net Sales or Marketing Spend' (Semantic false friends rule), thus we cannot map 'Revenue Amount' to 'Total Marketing Spend' or any other provided canonical KPI. As there is no exact match and inventing a mapping is not allowed, the matched_kpi_id is set to null with a confidence_score of 0.0.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "fb57f7ab-1890-403f-8326-156920887b6e",
+                    "report_kpi_name": "Stage by Revenue Amount",
+                    "report_kpi_definition": "Revenue amount distribution across different stages of opportunities. | Distribution of revenue amount by stage | Worksheet 'Stage by revenue'",
+                    "report_kpi_lineage": [],
+                    "report_kpi_aggregation": "UNKNOWN",
+                    "worksheet_name": null,
+                    "canonical_kpi": null,
+                    "similarity_score": 0.0,
+                    "confidence_score": 0.0,
+                    "similarity_rationale": "The report KPI 'Stage' with calculation logic 'Distribution of revenue amount by stage' does not directly match any of the provided canonical KPIs. The closest potential match could be considered as 'Share of Spend' or 'Share of Clicks' due to the 'distribution' aspect, but upon closer inspection, the business meaning and context are different. 'Share of Spend' and 'Share of Clicks' refer to competitor analysis in advertising, whereas 'Distribution of revenue amount by stage' seems to relate to sales pipeline or revenue distribution across different stages, possibly in a CRM context. The canonical KPIs provided do not directly relate to the distribution of revenue by stage. Furthermore, the aggregation type is 'UNKNOWN', which introduces additional uncertainty. Given the mismatch in business context and the unknown aggregation, the confidence score is below 0.80, and the matched_kpi_id is set to null.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                },
+                {
+                    "mapping_id": "8f632a68-f797-484d-8ae0-f97cb99b5d4f",
+                    "report_kpi_name": "Renewal Measures",
+                    "report_kpi_definition": "Key metrics related to renewals. | Various renewal-related metrics | Worksheet 'Renewal'",
+                    "report_kpi_lineage": [],
+                    "report_kpi_aggregation": "UNKNOWN",
+                    "worksheet_name": null,
+                    "canonical_kpi": null,
+                    "similarity_score": 0.4,
+                    "confidence_score": 0.6,
+                    "similarity_rationale": "The report KPI 'Renewal Measures' has a vague definition and unknown aggregation, making it difficult to match with the provided canonical KPIs. The calculation logic is described as 'Various renewal-related metrics,' which suggests it could encompass multiple renewal-related measures. The canonical KPIs provided include 'Renewal Rate,' 'Mid-Term Cancellation Rate,' 'Retention Rate,' and 'Cancellation Rate,' all of which are related to renewal or customer retention in some way. However, without a clear understanding of the specific metric or aggregation used in 'Renewal Measures,' it's challenging to determine a precise match. The closest related canonical KPI is 'Renewal Rate,' but the lack of specific details about the report KPI's calculation logic and aggregation means we cannot confidently match it to any of the canonical KPIs. Therefore, the matched_kpi_id is set to null, and the confidence_score is below 0.80.",
+                    "confidence_rationale": "Phase 3 LLM",
+                    "mapping_status": "not_found",
+                    "resolved_by": null
+                }
+            ]
+        }
+    ],
+    "summary": {
+        "total": 97,
+        "mapped": 0,
+        "review": 0,
+        "not_found": 0
+    }
+}

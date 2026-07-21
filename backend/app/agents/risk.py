@@ -1,89 +1,128 @@
-import os
-from app.core.llm import get_llm
-from langchain_core.prompts import PromptTemplate
-from langchain_core.output_parsers import PydanticOutputParser
+"""Governance Risk Assessment Agent.
+
+Uses deterministic, auditable rules as the primary risk engine.
+These are threshold-based best-practice checks that are:
+- Fast (no API call, no cost)
+- Deterministic (same input → same output every time)
+- Explainable (auditors can trace every decision to a concrete rule)
+
+LLM is wasted on this task — the inputs are three numbers (name, worksheet
+count, calc field count). Threshold checks are an ``if`` statement, not a
+language understanding problem.
+"""
+
 from pydantic import BaseModel, Field
 from typing import List
+
 
 class RiskItem(BaseModel):
     risk_type: str = Field(description="Type of risk (e.g., 'High Complexity', 'No Owner', 'Stale Data')")
     description: str = Field(description="Detailed explanation of the risk")
     severity: str = Field(description="Severity: 'High', 'Medium', or 'Low'")
+    rule_id: str = Field(default="", description="Identifier for the governance rule that triggered this risk")
+
 
 class RiskAssessment(BaseModel):
     risks: List[RiskItem] = Field(description="List of identified governance risks")
 
-class GovernanceRiskAgent:
-    def __init__(self):
-        self.llm = get_llm(temperature=0.2)
-        self.parser = PydanticOutputParser(pydantic_object=RiskAssessment)
 
-    def _generate_fallback(self, dashboard_name: str, num_worksheets: int, calc_fields_count: int) -> RiskAssessment:
-        risks = []
-        if num_worksheets > 12:
+# ---------------------------------------------------------------------------
+# Configurable governance thresholds
+# ---------------------------------------------------------------------------
+WORKSHEET_HIGH_THRESHOLD = 12
+WORKSHEET_MEDIUM_THRESHOLD = 6
+CALC_FIELD_HIGH_THRESHOLD = 30
+CALC_FIELD_MEDIUM_THRESHOLD = 15
+
+
+class GovernanceRiskAgent:
+    """Rule-based risk assessor. No LLM required.
+
+    Every risk finding is backed by a named governance rule (``rule_id``),
+    making the output fully auditable and SOX-friendly.
+    """
+
+    def assess(
+        self,
+        dashboard_name: str,
+        num_worksheets: int,
+        calc_fields_count: int,
+    ) -> RiskAssessment:
+        risks: list[RiskItem] = []
+
+        # Rule GOV-R001: Worksheet complexity
+        if num_worksheets > WORKSHEET_HIGH_THRESHOLD:
             risks.append(RiskItem(
                 risk_type="High Complexity",
-                description=f"Dashboard contains {num_worksheets} worksheets. Having >12 worksheets creates visual overload and increases load times.",
-                severity="High"
+                description=(
+                    f"Dashboard '{dashboard_name}' contains {num_worksheets} worksheets. "
+                    f"Having >{WORKSHEET_HIGH_THRESHOLD} worksheets creates visual overload "
+                    f"and increases load times."
+                ),
+                severity="High",
+                rule_id="GOV-R001",
             ))
-        elif num_worksheets > 6:
+        elif num_worksheets > WORKSHEET_MEDIUM_THRESHOLD:
             risks.append(RiskItem(
                 risk_type="Medium Complexity",
-                description=f"Dashboard contains {num_worksheets} worksheets, which is moderately complex and may affect usability.",
-                severity="Medium"
+                description=(
+                    f"Dashboard '{dashboard_name}' contains {num_worksheets} worksheets, "
+                    f"which is moderately complex and may affect usability."
+                ),
+                severity="Medium",
+                rule_id="GOV-R001",
             ))
-            
-        if calc_fields_count > 30:
+
+        # Rule GOV-R002: Calculated field overhead
+        if calc_fields_count > CALC_FIELD_HIGH_THRESHOLD:
             risks.append(RiskItem(
                 risk_type="Heavy Calculation Overhead",
-                description=f"Contains {calc_fields_count} custom calculated fields. This business logic should be materialized in the data layer.",
-                severity="High"
+                description=(
+                    f"Contains {calc_fields_count} custom calculated fields. "
+                    f"This business logic should be materialized in the data layer."
+                ),
+                severity="High",
+                rule_id="GOV-R002",
             ))
-        elif calc_fields_count > 15:
+        elif calc_fields_count > CALC_FIELD_MEDIUM_THRESHOLD:
             risks.append(RiskItem(
                 risk_type="Calculation Overlap",
-                description=f"Dashboard defines {calc_fields_count} calculations locally. Consider certified data sources.",
-                severity="Medium"
+                description=(
+                    f"Dashboard defines {calc_fields_count} calculations locally. "
+                    f"Consider certified data sources."
+                ),
+                severity="Medium",
+                rule_id="GOV-R002",
             ))
-            
+
+        # Rule GOV-R003: No worksheets at all (possibly broken)
+        if num_worksheets == 0:
+            risks.append(RiskItem(
+                risk_type="Empty Dashboard",
+                description="Dashboard has zero worksheets. It may be unused or broken.",
+                severity="Medium",
+                rule_id="GOV-R003",
+            ))
+
+        # Rule GOV-R004: Zero calculated fields with many worksheets
+        # (suggests raw data dump rather than analytical dashboard)
+        if calc_fields_count == 0 and num_worksheets > 3:
+            risks.append(RiskItem(
+                risk_type="Raw Data Exposure",
+                description=(
+                    f"Dashboard has {num_worksheets} worksheets but zero calculated fields. "
+                    f"This may be exposing raw data tables without analytical transformation."
+                ),
+                severity="Low",
+                rule_id="GOV-R004",
+            ))
+
         if not risks:
             risks.append(RiskItem(
                 risk_type="Low Risk Profile",
                 description="Dashboard complies with all design and structural governance thresholds.",
-                severity="Low"
+                severity="Low",
+                rule_id="GOV-R000",
             ))
-            
+
         return RiskAssessment(risks=risks)
-
-    def assess(self, dashboard_name: str, num_worksheets: int, calc_fields_count: int) -> RiskAssessment:
-        if not self.llm:
-            return self._generate_fallback(dashboard_name, num_worksheets, calc_fields_count)
-
-        prompt = PromptTemplate(
-            template="""You are a Data Governance Risk Assessor.
-Review the following dashboard metrics and identify potential governance risks based on best practices.
-For example, >15 worksheets or >50 calculated fields is high complexity/maintenance risk.
-
-Dashboard Name: {dashboard_name}
-Total Worksheets: {num_worksheets}
-Total Calculated Fields: {calc_fields_count}
-
-{format_instructions}
-""",
-            input_variables=["dashboard_name", "num_worksheets", "calc_fields_count"],
-            partial_variables={"format_instructions": self.parser.get_format_instructions()}
-        )
-
-        try:
-            _input = prompt.format_prompt(
-                dashboard_name=dashboard_name,
-                num_worksheets=num_worksheets,
-                calc_fields_count=calc_fields_count
-            )
-            
-            output = self.llm.invoke(_input.to_string())
-            return self.parser.parse(output.content)
-        except Exception as e:
-            # Catch LLM errors gracefully and return best-practice rule assessment
-            return self._generate_fallback(dashboard_name, num_worksheets, calc_fields_count)
-

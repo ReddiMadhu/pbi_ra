@@ -11,7 +11,7 @@ interface AgentStep {
 
 interface AgentResult {
   classification: { domain: string; complexity: number; summary: string; is_real_ai?: boolean } | null;
-  risks: { risk_type: string; description: string; severity: string }[];
+  risks: { risk_type: string; description: string; severity: string; rule_id?: string }[];
   recommendations: string[];
 }
 
@@ -281,7 +281,14 @@ export function AgentConsole({ data, type = 'workbook' }: { data: any; type?: 'w
                       {risk.severity}
                     </span>
                     <div>
-                      <p className="text-xs font-semibold text-foreground">{risk.risk_type}</p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="text-xs font-semibold text-foreground">{risk.risk_type}</p>
+                        {risk.rule_id && (
+                          <span className="font-mono text-[9px] bg-muted/80 text-muted-foreground px-1 py-0.5 rounded border border-border/50">
+                            {risk.rule_id}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground mt-0.5">{risk.description}</p>
                     </div>
                   </div>

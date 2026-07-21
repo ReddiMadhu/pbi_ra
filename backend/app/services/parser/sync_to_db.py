@@ -121,10 +121,12 @@ def sync_metadata_to_db(metadata: WorkbookMetadata, pg_session: Session):
         except Exception:
             pass
         try:
-            conn.execute(text(
-                "CREATE UNIQUE INDEX IF NOT EXISTS idx_rkm_report_ws_kpi "
-                "ON report_kpi_mappings (report_id, worksheet_id, report_kpi_name);"
-            ))
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS idx_rkm_report_ws_kpi "
+                "ON report_kpi_mappings (report_id, worksheet_id, report_kpi_name);"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE dashboards ADD COLUMN scope_status TEXT DEFAULT 'pending_approval';"))
         except Exception:
             pass
 
@@ -216,7 +218,8 @@ def sync_metadata_to_db(metadata: WorkbookMetadata, pg_session: Session):
         dash_db = Dashboard(
             workbook_id=wb_db.id, 
             name=db_meta.name,
-            raw_metadata=raw_meta
+            raw_metadata=raw_meta,
+            scope_status="pending_approval"
         )
         pg_session.add(dash_db)
         _retry_commit(pg_session, label="dashboard")

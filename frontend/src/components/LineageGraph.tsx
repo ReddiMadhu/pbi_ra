@@ -2,6 +2,7 @@ import { API_BASE_URL } from '@/config';
 import React, { useEffect, useState } from 'react';
 import { ReactFlow, MiniMap, Controls, Background, useNodesState, useEdgesState, MarkerType, Handle, Position } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+// @ts-ignore
 import dagre from 'dagre';
 import { Loader2, AlertCircle } from 'lucide-react';
 
@@ -166,8 +167,8 @@ function buildEdge(e: any) {
 }
 
 export function LineageGraph({ dashboardName, workbookName, viewType = 'full' }: { dashboardName?: string; workbookName?: string; viewType?: 'full' | 'worksheets' | 'tables' }) {
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<any>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<any>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [joinCount, setJoinCount] = useState(0);

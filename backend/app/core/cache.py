@@ -99,7 +99,7 @@ class CachedLLM:
 
     def _get_hash(self, text: str) -> str:
         """Create a stable hash of the input prompt."""
-        return hashlib.md5(text.encode('utf-8')).hexdigest()
+        return hashlib.sha256(text.encode('utf-8')).hexdigest()
 
     def invoke(self, input_data: Any) -> Any:
         """

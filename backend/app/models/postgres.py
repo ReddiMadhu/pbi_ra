@@ -47,6 +47,7 @@ class Dashboard(Base):
     ai_summary = Column(Text, nullable=True)
     raw_metadata = Column(JSON, nullable=True)
     is_real_ai = Column(Integer, default=0)
+    scope_status = Column(String, default="pending_approval", index=True)
 
     workbook = relationship("Workbook", back_populates="dashboards")
     worksheets = relationship("Worksheet", back_populates="dashboard")

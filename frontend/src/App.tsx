@@ -10,8 +10,10 @@ import { AreaDetailView } from './components/AreaDetailView';
 import { DashboardOverviewView } from './components/DashboardOverviewView';
 import { KPIDashboardGraph } from './components/KPIDashboardGraph';
 import { RecommendationsView } from './components/RecommendationsView';
-import { OntologyBankView } from './components/OntologyBankView';
-type View = 'hub' | 'upload' | 'inventory' | 'overview' | 'detail' | 'landscape' | 'bi_assist' | 'areas' | 'areaDetail' | 'kpiGraph' | 'recommendations' | 'ontology';
+import { KPIGovernanceView } from './components/KPIGovernanceView';
+import { KPIOntologyBankView } from './components/KPIOntologyBankView';
+import { ScopeApprovalView } from './components/ScopeApprovalView';
+type View = 'hub' | 'upload' | 'inventory' | 'overview' | 'detail' | 'landscape' | 'bi_assist' | 'areas' | 'areaDetail' | 'kpiGraph' | 'recommendations' | 'kpi_governance' | 'kpi_ontology' | 'scope_approval';
 function App() {
   const [currentView, setCurrentView] = useState<View>('upload');
   const [selectedLOBs, setSelectedLOBs] = useState<string[]>([]);
@@ -25,7 +27,7 @@ function App() {
   const [inventoryBackView, setInventoryBackView] = useState<View>('areas');
   const [requestedDashboardsForGraph, setRequestedDashboardsForGraph] = useState<string>('');
   const [recommendationsData, setRecommendationsData] = useState<any>(null);
-  const [ontologyFilterReportId, setOntologyFilterReportId] = useState<string | undefined>();
+
   // Handle global cross-component dashboard navigation from ChatPanel
   useEffect(() => {
     const handleNav = (e: Event) => {
@@ -74,7 +76,7 @@ function App() {
     setSelectedWorkbook(null);
     setSelectedDashboard(null);
     setRecommendationsData(null);
-    setCurrentView('areas');
+    setCurrentView('scope_approval');
   };
   const goToHub = () => {
     setSelectedWorkbook(null);
@@ -235,17 +237,22 @@ function App() {
               dashboard={selectedDashboard}
               workbookData={selectedWorkbook}
               onBack={goBackToInventory}
-              onResolveKpis={(reportId) => {
-                setOntologyFilterReportId(String(reportId));
-                setCurrentView('ontology');
+              onResolveKpis={() => {
+                setCurrentView('kpi_governance');
               }}
             />
           </div>
         )}
-        {/* ── Ontology Bank ───────────────────────────────── */}
-        {currentView === 'ontology' && (
+        {/* ── KPI Governance (Unified Ontology Mapping) ──── */}
+        {currentView === 'kpi_governance' && (
           <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-            <OntologyBankView filterReportId={ontologyFilterReportId} />
+            <KPIGovernanceView workbooksData={workbooksData || []} onNavigate={setCurrentView} />
+          </div>
+        )}
+        {/* ── KPI Ontology Bank (Browse canonical KPIs) ── */}
+        {currentView === 'kpi_ontology' && (
+          <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+            <KPIOntologyBankView onNavigate={setCurrentView} />
           </div>
         )}
         {/* ── KPI Graph View ────────────────────────────── */}
@@ -259,6 +266,12 @@ function App() {
               <span className="text-xs font-medium text-foreground truncate max-w-xs">KPI Lineage Graph</span>
             </div>
             <KPIDashboardGraph dashboards={requestedDashboardsForGraph} />
+          </div>
+        )}
+        {/* ── Scope Approval View ─────────────────────────── */}
+        {currentView === 'scope_approval' && (
+          <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+            <ScopeApprovalView onNavigate={setCurrentView} />
           </div>
         )}
       </div>

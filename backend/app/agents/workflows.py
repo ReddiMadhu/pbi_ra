@@ -147,7 +147,7 @@ def _assess_risks(state: GovernanceAgentState) -> GovernanceAgentState:
     )
     
     state["risks"] = [
-        {"risk_type": r.risk_type, "description": r.description, "severity": r.severity}
+        {"risk_type": r.risk_type, "description": r.description, "severity": r.severity, "rule_id": r.rule_id}
         for r in assessment.risks
     ]
     

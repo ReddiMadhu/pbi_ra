@@ -22,7 +22,7 @@ function KPICard({ icon, title, value, subtitle, color, isActive, onClick }: {
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className={`text-xs font-semibold uppercase tracking-wider ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>{title}</CardTitle>
         <div className={`p-1.5 rounded-lg ${color}`}>
-          {React.cloneElement(icon as React.ReactElement, { className: 'w-4 h-4' })}
+          {React.cloneElement(icon as React.ReactElement<any>, { className: 'w-4 h-4' })}
         </div>
       </CardHeader>
       <CardContent>
@@ -258,7 +258,7 @@ export function InventoryView({ data, onViewDetails }: { data: any; onViewDetail
                             <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 border border-border rounded">Tableau Dashboard</span>
                           )}
                           {aiDb && (
-                            aiDb.is_real_ai ? (
+                            (aiDb as any).is_real_ai ? (
                               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[8px] font-bold border border-emerald-500/20 uppercase tracking-wider">
                                 <Sparkles className="w-2.5 h-2.5 inline-block mr-0.5 flex-shrink-0" /> Live AI Summary
                               </span>

@@ -1,108 +1,59 @@
+import logging
+import os
+import traceback
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from datetime import datetime
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
 from app.api.v1.api import api_router
 from app.core.config import settings
 from app.db.session import engine, Base
+
 import app.models.postgres  # noqa: F401 — ensures all models are registered with Base
 import app.models.ontology  # noqa: F401
 import app.models.rationalization  # noqa: F401
 
+logger = logging.getLogger(__name__)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Auto-create all SQLite tables on startup (no migrations needed!)
+    # Auto-create all SQLite tables on startup
     Base.metadata.create_all(bind=engine)
-    
-    from sqlalchemy import text
-    with engine.begin() as conn:
-        try:
-            conn.execute(text("ALTER TABLE worksheets ADD COLUMN workbook_id INTEGER REFERENCES workbooks(id);"))
-        except Exception:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE tables ADD COLUMN columns JSON;"))
-        except Exception:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE tables ADD COLUMN rows JSON;"))
-        except Exception:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE dashboards ADD COLUMN is_real_ai INTEGER DEFAULT 0;"))
-        except Exception:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE worksheets ADD COLUMN measure_bindings JSON;"))
-        except Exception:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE report_kpi_mappings ADD COLUMN worksheet_id TEXT;"))
-        except Exception:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE report_kpi_mappings ADD COLUMN worksheet_name TEXT;"))
-        except Exception:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE ontology_kpis ADD COLUMN representative_lineage TEXT;"))
-        except Exception:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE ontology_kpis ADD COLUMN sector TEXT;"))
-        except Exception:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE ontology_kpis ADD COLUMN subdomain TEXT;"))
-        except Exception:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE dashboards ADD COLUMN ontology_sector TEXT;"))
-        except Exception:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE dashboards ADD COLUMN ontology_subdomain TEXT;"))
-        except Exception:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE report_kpi_mappings ADD COLUMN report_kpi_definition TEXT;"))
-        except Exception:
-            pass
-        try:
-            from app.db.migrations.ontology_tables import migrate_ontology_kpi_scoped_unique
-            migrate_ontology_kpi_scoped_unique(conn)
-        except Exception:
-            pass
-        try:
-            conn.execute(text("DROP INDEX IF EXISTS idx_rkm_report_canonical;"))
-        except Exception:
-            pass
-        try:
-            conn.execute(text(
-                "CREATE UNIQUE INDEX IF NOT EXISTS idx_rkm_report_ws_kpi "
-                "ON report_kpi_mappings (report_id, worksheet_id, report_kpi_name);"
-            ))
-        except Exception:
-            pass
+
+    # Run tracked schema migrations (replaces ad-hoc ALTER TABLE blocks)
+    from app.db.migrations.runner import run_migrations
+
+    try:
+        applied = run_migrations(engine)
+        logger.info("Schema migrations: %d newly applied", applied)
+    except Exception as mig_err:
+        logger.error("Schema migration failed: %s", mig_err, exc_info=True)
+        raise  # Fail fast — don't start with an inconsistent schema
 
     # Auto-seed curated KPIs if database table is empty
     try:
         from app.db.session import SessionLocal
         from app.db.seeds.seeder import seed_ontology_kpis
+
         db_sess = SessionLocal()
         try:
             seed_ontology_kpis(db_sess)
         finally:
             db_sess.close()
     except Exception as seed_err:
-        import logging
-        logging.getLogger(__name__).error("Lifespan startup seeder failed: %s", seed_err)
+        logger.error("Lifespan startup seeder failed: %s", seed_err)
 
     yield
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -115,23 +66,29 @@ app.add_middleware(
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
-from fastapi import Request
-from fastapi.responses import JSONResponse
-from datetime import datetime
-import traceback
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     error_msg = f"Exception: {str(exc)}\n{traceback.format_exc()}"
+
+    # Log full traceback server-side
+    logger.error("Unhandled exception on %s %s:\n%s", request.method, request.url.path, error_msg)
+
+    # Also write to a local error log file (relative to project root, not a hardcoded path)
     try:
-        with open(r"c:\Users\91798\.gemini\antigravity\scratch\tableau_gov_platform\backend\error.log", "a") as f:
+        log_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        log_path = os.path.join(log_dir, "error.log")
+        with open(log_path, "a", encoding="utf-8") as f:
             f.write(f"\n--- ERROR AT {datetime.now()} ---\n{error_msg}\n")
     except Exception:
         pass
+
+    # Return a safe error response — no stack traces to the client
     return JSONResponse(
         status_code=500,
-        content={"detail": str(exc), "traceback": traceback.format_exc()}
+        content={"detail": "Internal server error. Check server logs for details."},
     )
+
 
 @app.get("/")
 def root():

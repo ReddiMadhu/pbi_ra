@@ -1,6 +1,6 @@
 import { API_BASE_URL } from '@/config';
 import React, { useMemo, useState, useEffect } from 'react';
-import { LayoutDashboard, Filter, ChevronDown, Check, FolderOpen, Sparkles, FileSpreadsheet, Calculator, Table, ArrowRight, BarChart2, Database, Brain, CheckCircle2, XCircle, Search, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, Filter, ChevronDown, Check, FolderOpen, Sparkles, FileSpreadsheet, Calculator, Table, ArrowRight, BarChart2, Database } from 'lucide-react';
 import { getWorkbookAreaId, AREAS } from './BusinessAreasView';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 
@@ -21,7 +21,7 @@ function KPICard({ icon, title, value, subtitle, color, isActive, onClick }: {
       <CardHeader className={`flex flex-row items-center justify-between space-y-0 pb-2`}>
         <CardTitle className={`text-xs font-semibold uppercase tracking-wider ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>{title}</CardTitle>
         <div className={`p-1.5 rounded-lg ${color}`}>
-          {React.cloneElement(icon as React.ReactElement, { className: 'w-4 h-4' })}
+          {React.cloneElement(icon as React.ReactElement<any>, { className: 'w-4 h-4' })}
         </div>
       </CardHeader>
       <CardContent>
@@ -174,7 +174,7 @@ export function DashboardOverviewView({
   const [selectedBusinessArea, setSelectedBusinessArea] = useState<string | null>(null);
   const [selectedDashboardName, setSelectedDashboardName] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'dashboards' | 'worksheets' | 'kpis' | 'calcFields' | 'tables'>('dashboards');
+  const [activeTab, setActiveTab] = useState<'dashboards' | 'worksheets' | 'calcFields' | 'tables'>('dashboards');
   const [selectedWorksheet, setSelectedWorksheet] = useState<string | null>(null);
 
   // 4. Compute Dashboard Names based on first 3 filters
@@ -279,54 +279,7 @@ export function DashboardOverviewView({
     };
   }, [displayedDashboards]);
 
-  // Ontology matching data — fetch per unique workbook, aggregate
-  const [ontologyDataMap, setOntologyDataMap] = useState<Record<string, any>>({});
 
-  useEffect(() => {
-    const uniqueWbNames = new Set<string>();
-    displayedDashboards.forEach(d => {
-      const wbName = d.workbook.source_file?.split(/[/\\]/).pop() || d.workbook.source_file;
-      if (wbName) uniqueWbNames.add(wbName);
-    });
-
-    Array.from(uniqueWbNames).forEach(wbName => {
-      if (ontologyDataMap[wbName]) return;
-      fetch(`${API_BASE_URL}/api/v1/ontology/workbook/${encodeURIComponent(wbName)}/kpis`)
-        .then(r => r.json())
-        .then(data => {
-          setOntologyDataMap(prev => ({ ...prev, [wbName]: data }));
-        })
-        .catch(() => {});
-    });
-  }, [displayedDashboards]);
-
-  // Aggregate ontology mappings across displayed dashboards
-  const { ontologyMappings, ontologySummary } = useMemo(() => {
-    const mappings: any[] = [];
-    let total = 0, mapped = 0, review = 0, notFound = 0;
-
-    const displayedDashIds = new Set(displayedDashboards.map(d => d.id || d.name));
-
-    Object.values(ontologyDataMap).forEach((data: any) => {
-      (data.dashboards || []).forEach((dash: any) => {
-        // Filter to only displayed dashboards
-        if (!displayedDashIds.has(dash.dashboard_id) && !displayedDashIds.has(dash.dashboard_name)) return;
-        (dash.items || []).forEach((item: any) => {
-          mappings.push({ ...item, dashboardName: dash.dashboard_name });
-          total++;
-          const s = item.mapping_status || '';
-          if (['auto_accepted', 'human_accepted', 'promoted'].includes(s)) mapped++;
-          else if (s === 'pending_review') review++;
-          else if (s === 'not_found') notFound++;
-        });
-      });
-    });
-
-    return {
-      ontologyMappings: mappings,
-      ontologySummary: { total, mapped, review, not_found: notFound, ontology_score: total > 0 ? mapped / total : 0 },
-    };
-  }, [ontologyDataMap, displayedDashboards]);
 
   return (
     <div className="flex-1 overflow-auto bg-background p-8">
@@ -378,7 +331,7 @@ export function DashboardOverviewView({
         </div>
 
         {/* KPI Row (Tab Switchers) */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <KPICard
             icon={<LayoutDashboard />}
             title="Dashboards"
@@ -387,15 +340,6 @@ export function DashboardOverviewView({
             color="bg-blue-500/15 text-blue-400"
             isActive={activeTab === 'dashboards'}
             onClick={() => setActiveTab('dashboards')}
-          />
-          <KPICard
-            icon={<Brain />}
-            title="KPI"
-            value={ontologySummary.total}
-            subtitle="Ontology Matched"
-            color="bg-indigo-500/15 text-indigo-400"
-            isActive={activeTab === 'kpis'}
-            onClick={() => setActiveTab('kpis')}
           />
           <KPICard
             icon={<FileSpreadsheet />}
@@ -417,7 +361,7 @@ export function DashboardOverviewView({
           />
           <KPICard
             icon={<Table />}
-            title="Data Sources KPI"
+            title="Data Sources"
             value={filteredAssets.tables.length}
             subtitle="Physical database tables"
             color="bg-rose-500/15 text-rose-400"
@@ -588,124 +532,7 @@ export function DashboardOverviewView({
           </div>
         )}
 
-        {/* TAB: KPIs — Ontology Matching Results */}
-        {activeTab === 'kpis' && (
-          <Card className="animate-in fade-in duration-300">
-            <CardHeader className="border-b border-border pb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Brain className="w-5 h-5 text-indigo-500" />
-                  KPI Ontology Matching
-                </CardTitle>
-                <span className="text-xs text-muted-foreground">{ontologySummary.total} total</span>
-              </div>
-              {ontologySummary.total > 0 && (
-                <div className="mt-4 flex items-center gap-6">
-                  <div className="flex items-center gap-4 text-xs">
-                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> {ontologySummary.mapped} Mapped
-                    </span>
-                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">
-                      <Search className="w-3.5 h-3.5" /> {ontologySummary.review} Review
-                    </span>
-                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 font-semibold">
-                      <XCircle className="w-3.5 h-3.5" /> {ontologySummary.not_found} Not Found
-                    </span>
-                  </div>
-                  <div className="ml-auto flex items-center gap-2">
-                    <span className="text-xs font-semibold text-muted-foreground">Ontology Score</span>
-                    <div className="w-24 h-2 rounded-full bg-muted overflow-hidden">
-                      <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${Math.round(ontologySummary.ontology_score * 100)}%` }} />
-                    </div>
-                    <span className="text-xs font-bold text-primary">{Math.round(ontologySummary.ontology_score * 100)}%</span>
-                  </div>
-                </div>
-              )}
-            </CardHeader>
-            <CardContent className="p-0">
-              {ontologyMappings.length > 0 ? (
-                <div>
-                  <div className="grid grid-cols-12 px-6 py-3 bg-muted/30 border-b border-border text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    <span className="col-span-3">Report KPI</span>
-                    <span className="col-span-2">Worksheet</span>
-                    <span className="col-span-3">Canonical KPI</span>
-                    <span className="col-span-1 text-center">Similarity</span>
-                    <span className="col-span-1 text-center">Confidence</span>
-                    <span className="col-span-2 text-center">Status</span>
-                  </div>
-                  <div className="divide-y divide-border">
-                    {ontologyMappings.map((m: any, idx: number) => {
-                      const status = m.mapping_status || '';
-                      const isAccepted = ['auto_accepted', 'human_accepted', 'promoted'].includes(status);
-                      const isReview = status === 'pending_review';
-                      const isNotFound = status === 'not_found';
-                      return (
-                        <div key={idx} className="grid grid-cols-12 px-6 py-3.5 items-center hover:bg-accent/30 transition-colors text-sm">
-                          <div className="col-span-3">
-                            <p className="font-semibold text-foreground truncate">{m.report_kpi_name}</p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{m.dashboardName}</p>
-                          </div>
-                          <div className="col-span-2">
-                            <span className="text-xs text-muted-foreground truncate block">{m.worksheet_name || '—'}</span>
-                          </div>
-                          <div className="col-span-3">
-                            {m.canonical_kpi ? (
-                              <div>
-                                <p className="font-medium text-indigo-400 truncate">{m.canonical_kpi.name}</p>
-                                <p className="text-[10px] text-muted-foreground truncate">{m.canonical_kpi.subdomain?.replace(/_/g, ' ')}</p>
-                              </div>
-                            ) : (
-                              <span className="text-xs text-muted-foreground/50 italic">No match</span>
-                            )}
-                          </div>
-                          <div className="col-span-1 text-center">
-                            {m.similarity_score != null ? (
-                              <span className={`text-xs font-mono font-bold ${m.similarity_score >= 0.8 ? 'text-emerald-400' : m.similarity_score >= 0.5 ? 'text-amber-400' : 'text-red-400'}`}>
-                                {(m.similarity_score * 100).toFixed(0)}%
-                              </span>
-                            ) : <span className="text-muted-foreground/40">—</span>}
-                          </div>
-                          <div className="col-span-1 text-center">
-                            {m.confidence_score != null ? (
-                              <span className={`text-xs font-mono font-bold ${m.confidence_score >= 0.8 ? 'text-emerald-400' : m.confidence_score >= 0.5 ? 'text-amber-400' : 'text-red-400'}`}>
-                                {(m.confidence_score * 100).toFixed(0)}%
-                              </span>
-                            ) : <span className="text-muted-foreground/40">—</span>}
-                          </div>
-                          <div className="col-span-2 flex justify-center">
-                            {isAccepted && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
-                                <CheckCircle2 className="w-3 h-3" /> Mapped
-                              </span>
-                            )}
-                            {isReview && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/20">
-                                <AlertTriangle className="w-3 h-3" /> Review
-                              </span>
-                            )}
-                            {isNotFound && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/15 text-red-400 border border-red-500/20">
-                                <XCircle className="w-3 h-3" /> Not Found
-                              </span>
-                            )}
-                            {!isAccepted && !isReview && !isNotFound && (
-                              <span className="text-[10px] text-muted-foreground">{status || '—'}</span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <Brain className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground italic">No ontology KPI mappings found. Run the ontology extraction pipeline from the dashboard detail view.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
+
 
         {/* TAB: Calculated Fields */}
         {activeTab === 'calcFields' && (

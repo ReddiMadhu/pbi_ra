@@ -1,6 +1,6 @@
 import { API_BASE_URL } from '@/config';
 import React from 'react';
-import { ArrowLeft, Layers, Database, Calculator, GitBranch, ChevronDown, BarChart2, Sparkles, Info } from 'lucide-react';
+import { ArrowLeft, Layers, Database, Calculator, GitBranch, ChevronDown, BarChart2, Sparkles, Info, Shield, AlertTriangle } from 'lucide-react';
 import { LineageGraph } from './LineageGraph';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { OntologyScoreBadge, OntologyKPIInventory } from './OntologyScoreBadge';
@@ -15,11 +15,12 @@ export function DetailView({
   dashboard: any;
   workbookData: any;
   onBack: () => void;
-  onResolveKpis?: (reportId: number) => void;
+  onResolveKpis?: () => void;
 }) {
   const [selectedWorksheet, setSelectedWorksheet] = React.useState<string | null>(null);
   const [aiSummaries, setAiSummaries] = React.useState<any>(null);
   const [ontologyInventory, setOntologyInventory] = React.useState<OntologyKPIInventory | null>(null);
+  const [governanceEval, setGovernanceEval] = React.useState<any>(null);
 
   const workbookBaseName = workbookData?.source_file?.split(/[/\\]/).pop() || workbookData?.source_file;
 
@@ -37,6 +38,13 @@ export function DetailView({
       .then((r) => r.json())
       .then((data) => {
         if (data?.total > 0) setOntologyInventory(data);
+      })
+      .catch(() => {});
+
+    fetch(`${API_BASE_URL}/api/v1/governance/dashboard/${dashboard.id}/evaluate`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && !data.error) setGovernanceEval(data);
       })
       .catch(() => {});
   }, [dashboard?.id]);
@@ -108,13 +116,71 @@ export function DetailView({
           <div className="mt-3 flex items-center gap-3 flex-wrap">
             <OntologyScoreBadge inventory={ontologyInventory} compact />
             {onResolveKpis && (ontologyInventory?.ambiguous || ontologyInventory?.not_found) ? (
-              <Button variant="outline" size="sm" onClick={() => onResolveKpis(dashboard.id)}>
+              <Button variant="outline" size="sm" onClick={() => onResolveKpis()}>
                 Resolve KPIs
               </Button>
             ) : null}
           </div>
         </CardContent>
       </Card>
+
+      {/* Governance Quality & Audit Card */}
+      {governanceEval && (
+        <Card className="border-border bg-card">
+          <CardHeader className="border-b border-border pb-3 flex flex-row items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-indigo-400" />
+              <CardTitle className="text-sm">Governance Quality Assessment</CardTitle>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
+                governanceEval.overall_decision === 'AUTO_APPROVE'
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                  : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+              }`}>
+                {governanceEval.overall_decision === 'AUTO_APPROVE' ? '✓ Auto Approved' : '⚠️ Requires Review'}
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 space-y-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-2.5 rounded-lg bg-muted/30 border border-border/50 text-center">
+                <p className="text-[10px] text-muted-foreground uppercase font-semibold">Evaluated Mappings</p>
+                <p className="text-xl font-bold text-foreground mt-0.5">{governanceEval.summary?.total_mappings || 0}</p>
+              </div>
+              <div className="p-2.5 rounded-lg bg-muted/30 border border-border/50 text-center">
+                <p className="text-[10px] text-muted-foreground uppercase font-semibold">Auto Approved</p>
+                <p className="text-xl font-bold text-emerald-400 mt-0.5">{governanceEval.summary?.auto_approved || 0}</p>
+              </div>
+              <div className="p-2.5 rounded-lg bg-muted/30 border border-border/50 text-center">
+                <p className="text-[10px] text-muted-foreground uppercase font-semibold">Needs Review</p>
+                <p className="text-xl font-bold text-amber-400 mt-0.5">{governanceEval.summary?.pending_review || 0}</p>
+              </div>
+              <div className="p-2.5 rounded-lg bg-muted/30 border border-border/50 text-center">
+                <p className="text-[10px] text-muted-foreground uppercase font-semibold">Quality Warnings</p>
+                <p className={`text-xl font-bold mt-0.5 ${(governanceEval.summary?.total_warnings || 0) > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                  {governanceEval.summary?.total_warnings || 0}
+                </p>
+              </div>
+            </div>
+
+            {/* Warnings List */}
+            {governanceEval.dashboard_warnings?.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-border/50">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Dashboard Quality Alerts</p>
+                <div className="space-y-1.5">
+                  {governanceEval.dashboard_warnings.map((w: any, idx: number) => (
+                    <div key={idx} className="flex items-start gap-2 p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-rose-400" />
+                      <span>{w.message}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Two Column Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

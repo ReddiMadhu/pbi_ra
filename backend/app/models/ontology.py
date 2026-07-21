@@ -22,6 +22,7 @@ class OntologyKPI(Base):
     domain = Column(String, nullable=True)
     sector = Column(String, nullable=True, index=True)
     subdomain = Column(String, nullable=True, index=True)
+    line_of_business = Column(String, nullable=True, index=True)
     aliases = Column(Text, nullable=True)  # JSON array
     aggregation_type = Column(String, nullable=True)
     valid_dimensions = Column(Text, nullable=True)  # JSON array
@@ -30,6 +31,7 @@ class OntologyKPI(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     status = Column(String, default="active")
     embedding = Column(LargeBinary, nullable=True)
+    embedding_model = Column(String, nullable=True)  # Tracks which model generated this embedding
 
 
 Index(
@@ -63,6 +65,11 @@ class ReportKPIMapping(Base):
     ontology_version = Column(String, nullable=True)
     computed_at = Column(DateTime, default=datetime.utcnow)
     is_dynamic = Column(Boolean, default=False)
+    mapping_type = Column(String, nullable=True)  # exact, alias, formula_equivalent, semantic_match, no_match
+    alternative_candidates = Column(Text, nullable=True)  # JSON array of top-5 candidates
+    formula_similarity = Column(Float, nullable=True)  # 0.0–1.0 SequenceMatcher score
+    warnings = Column(Text, nullable=True)  # JSON array of quality-check warnings
+    approval_decision = Column(String, nullable=True)  # AUTO_APPROVE | REQUIRES_HUMAN_REVIEW
 
 
 Index(
